@@ -1,0 +1,17 @@
+type ProductName string
+type CategoryId int
+type UnitId int
+type ProductId int
+type ItemId int
+type UserId int
+type Quantity int
+type Amount struct {
+	UnitId UnitId
+	Quantity Quantity
+}
+
+func AddProduct(name ProductName, categoryId CategoryId, defaultUnitId UnitId) (ProductId, error)
+func AddItem(id ProductId) (ItemId, error)
+func CheckItem(id ItemId) (bool, error)
+func RemoveItem(id ItemId) (bool, error)
+func SetAmount(id ItemId, amount Amount) (bool, error)
