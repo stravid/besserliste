@@ -5,6 +5,7 @@ import (
 )
 
 //go:embed "screens"
+//go:embed "layouts"
 var Templates embed.FS
 
 //go:embed "static"

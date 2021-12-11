@@ -1,0 +1,14 @@
+{{define "external"}}
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>{{template "title" .}} - Besserliste</title>
+    <link href="/static/besserliste.css?version=1" rel="stylesheet">
+  </head>
+  <body>
+    {{template "main" .}}
+  </body>
+</html>
+{{end}}

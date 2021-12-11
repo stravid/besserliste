@@ -1,0 +1,4 @@
+{
+  "Database": "development.db",
+  "Secret": "64 character hex string"
+}

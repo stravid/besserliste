@@ -1,19 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Add Item</title>
-</head>
-<body>
+{{template "internal" .}}
 
-<nav>
-  <a href="/plan">Plan</a>
-  <a href="/shop">Shop</a>
-</nav>
+{{define "title"}}Add Item{{end}}
 
-<hr>
-
+{{define "main"}}
 <form method="POST">
   <div>
     <strong>Wassermelone</strong>
@@ -49,6 +38,4 @@
   <a href="/plan">Abbrechen</a>
   <button type="submit">Hinzufügen</button>
 </form>
-
-</body>
-</html>
+{{end}}

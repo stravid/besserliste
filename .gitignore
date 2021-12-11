@@ -1,1 +1,3 @@
 .local-data
+config.json
+*.db
