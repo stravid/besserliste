@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Add Product</title>
+</head>
+<body>
+
+<nav>
+  <a href="/plan">Plan</a>
+  <a href="/shop">Shop</a>
+</nav>
+
+<hr>
+
+<form method="POST">
+  <div>
+    <label for="name">Produktname</label>
+    <input id="name" type="text" name="name">
+  </div>
+
+  <p>Kategorie</p>
+
+  <div>
+    <input type="radio" id="category-1" name="category_id" value="1">
+    <label for="category-1">Obst & Gemüse</label>
+  </div>
+
+  <div>
+    <input type="radio" id="category-2" name="category_id" value="2">
+    <label for="category-2">Kühlregal</label>
+  </div>
+
+  <div>
+    <input type="radio" id="category-3" name="category_id" value="3">
+    <label for="category-3">Theke</label>
+  </div>
+
+  <div>
+    <input type="radio" id="category-4" name="category_id" value="4">
+    <label for="category-4">Tiefkühlregal</label>
+  </div>
+
+  <div>
+    <input type="radio" id="category-5" name="category_id" value="5">
+    <label for="category-5">Haushalt</label>
+  </div>
+
+  <div>
+    <input type="radio" id="category-6" name="category_id" value="6">
+    <label for="category-6">Verpackt</label>
+  </div>
+
+  <div>
+    <input type="radio" id="category-7" name="category_id" value="7">
+    <label for="category-7">Getränke</label>
+  </div>
+
+  <div>
+    <input type="radio" id="category-9" name="category_id" value="9">
+    <label for="category-9">Sonstiges</label>
+  </div>
+
+  <p>Maßeinheit</p>
+
+  <div>
+    <input type="radio" id="unit-1" name="unit_id" value="1">
+    <label for="unit-1">Stück</label>
+  </div>
+
+  <div>
+    <input type="radio" id="unit-2" name="unit_id" value="2">
+    <label for="unit-2">Kilogramm</label>
+  </div>
+
+  <div>
+    <input type="radio" id="unit-3" name="unit_id" value="3">
+    <label for="unit-3">Dekagramm</label>
+  </div>
+
+  <div>
+    <input type="radio" id="unit-4" name="unit_id" value="4">
+    <label for="unit-4">Gramm</label>
+  </div>
+
+  <div>
+    <label for="name">Menge</label>
+    <input id="name" inputmode="numeric" pattern="[0-9]*" type="text" name="amount">
+  </div>
+
+  <a href="/plan">Abbrechen</a>
+  <button type="submit">Hinzufügen</button>
+</form>
+
+</body>
+</html>

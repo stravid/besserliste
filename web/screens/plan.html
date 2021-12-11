@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plan</title>
+  <style type="text/css">
+    .suggestions a {
+      display: none;
+    }
+  </style>
+
+</head>
+<body>
+
+<nav>
+  <a href="/shop">Shop</a>
+</nav>
+
+<hr>
+
+<form action="/add-product" method="GET">
+  <input id="name" type="text" name="name">
+  <button type="submit">Hinzufügen</button>
+</form>
+
+<p class="suggestions">
+  {{range .}}
+  <a href="/add-item?product-id={{.}}" data-name="{{.}}">{{.}}</a>
+  {{end}}
+</p>
+
+<hr>
+
+<ol>
+  <li>Äpfel</li>
+  <li>Brot</li>
+  <li>Apfelsaft</li>
+  <li>Faschiertes</li>
+</ol>
+
+<script type="text/javascript">
+  var oldValue = "";
+
+  document.querySelector('#name').addEventListener('input', function() {
+    var currentValue = document.querySelector('#name').value;
+
+    if (oldValue <= currentValue) {
+      console.log('shrink');
+    } else {
+      console.log('expand');
+    }
+
+    var all = document.querySelectorAll(".suggestions a");
+    var visible = document.querySelectorAll(".suggestions a[data-name*='" + currentValue + "']");
+
+    for (var i = 0; i < all.length; i++) {
+      all[i].style.display = 'none';
+    }
+
+    for (var i = 0; i < visible.length; i++) {
+      visible[i].style.display = 'inline-block';
+    }
+
+    // console.log(document.querySelectorAll(".suggestions a[data-name*='" + currentValue + "']"));
+
+    oldValue = currentValue;
+  })
+
+</script>
+
+</body>
+</html>
