@@ -1,17 +1,20 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
-	"errors"
-	"context"
+	"unicode/utf8"
 
 	"github.com/golangcollege/sessions"
 	_ "github.com/mattn/go-sqlite3"
@@ -259,9 +262,90 @@ func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	categories, err := env.queries.GetCategories()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	type CategoryOption struct {
+		Id string
+		Name string
+	}
+
+	categoryOptions := []CategoryOption{}
+	categorySet := map[string]bool{}
+	for _, category := range categories {
+		categorySet[strconv.Itoa(category.Id)] = true
+		categoryOptions = append(categoryOptions, CategoryOption{
+			Id:   strconv.Itoa(category.Id),
+			Name: category.Name,
+		})
+	}
+
 	if r.Method == http.MethodPost {
-		http.Redirect(w, r, "/plan", http.StatusSeeOther)
+		errors := make(map[string]string)
+		name := strings.TrimSpace(r.PostForm.Get("name"))
+		categoryId := r.PostForm.Get("category_id")
+
+		if name == "" {
+			errors["name"] = "Name eingeben"
+		} else if utf8.RuneCountInString(name) > 40 {
+			errors["name"] = "Kürzeren Namen eingeben (maximal 40 Zeichen)"
+		}
+
+		if !categorySet[categoryId] {
+			errors["category_id"] = "Kategorie wählen"
+		}
+
+		if len(errors) > 0 {
+			files := []string{
+				"screens/add_product.html",
+				"layouts/internal.html",
+			}
+
+			user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
+			data := struct{
+				CurrentUser types.User
+				Categories []CategoryOption
+				Name string
+				CategoryId string
+				FormErrors map[string]string
+			} {
+				CurrentUser: user,
+				Categories: categoryOptions,
+				Name: name,
+				CategoryId: categoryId,
+				FormErrors: errors,
+			}
+
+			ts, err := template.ParseFS(web.Templates, files...)
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			err = ts.Execute(w, data)
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			http.Redirect(w, r, "/plan", http.StatusSeeOther)
+		}
 	} else {
+		name := r.Form.Get("name")
+
 		files := []string{
 			"screens/add_product.html",
 			"layouts/internal.html",
@@ -270,8 +354,15 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 		user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
 		data := struct{
 			CurrentUser types.User
+			Categories []CategoryOption
+			Name string
+			CategoryId string
+			FormErrors map[string]string
 		} {
 			CurrentUser: user,
+			Categories: categoryOptions,
+			Name: name,
+			CategoryId: "",
 		}
 
 		ts, err := template.ParseFS(web.Templates, files...)

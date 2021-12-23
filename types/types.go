@@ -11,6 +11,11 @@ type User struct {
 	Name string
 }
 
+type Category struct {
+	Id int
+	Name string
+}
+
 func UserIdFromString(input string) (*int, error) {
 	id, err := strconv.Atoi(input)
 	if err != nil {

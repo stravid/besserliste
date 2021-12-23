@@ -3,82 +3,124 @@
 {{define "title"}}Add Product{{end}}
 
 {{define "main"}}
+
+{{with .FormErrors}}
+<div>
+  <h2>Es gibt ein Problem</h2>
+  <ul>
+    {{range $id, $error := .}}
+    <li><a href="#{{$id}}">{{$error}}</a></li>
+    {{end}}
+  </ul>
+</div>
+{{end}}
+
+<h2>Neues Produkt auf Einkaufsliste setzen</h2>
+
 <form method="POST">
   <div>
-    <label for="name">Produktname</label>
-    <input id="name" type="text" name="name">
+    <label for="name">
+      <span>Produktname</span>
+      {{with .FormErrors.name}}
+      <span>
+        <svg viewBox="0 0 100 100" width="0.75em" height="0.75em" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+          <path d="M 100 50 C 100 77.614 77.614 100 50 100 C 22.386 100 0 77.614 0 50 C 0 22.386 22.386 0 50 0 C 77.614 0 100 22.386 100 50 Z M 50 72 C 44.477 72 40 76.477 40 82 C 40 87.523 44.477 92 50 92 C 55.523 92 60 87.523 60 82 C 60 76.477 55.523 72 50 72 Z M 50 9 C 43.096 9 37.5 21.536 37.5 37 C 37.5 52.464 43.096 65 50 65 C 56.904 65 62.5 52.464 62.5 37 C 62.5 21.536 56.904 9 50 9 Z"></path>
+        </svg>
+        {{.}}
+      </span>
+      {{end}}
+    </label>
+    <input id="name" type="text" name="name" value="{{.Name}}">
   </div>
 
-  <p>Kategorie</p>
+  <fieldset>
+    <legend>
+      <span>Kategorie</span>
+      {{with .FormErrors.category_id}}
+      <span>
+        <svg viewBox="0 0 100 100" width="0.75em" height="0.75em" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+          <path d="M 100 50 C 100 77.614 77.614 100 50 100 C 22.386 100 0 77.614 0 50 C 0 22.386 22.386 0 50 0 C 77.614 0 100 22.386 100 50 Z M 50 72 C 44.477 72 40 76.477 40 82 C 40 87.523 44.477 92 50 92 C 55.523 92 60 87.523 60 82 C 60 76.477 55.523 72 50 72 Z M 50 9 C 43.096 9 37.5 21.536 37.5 37 C 37.5 52.464 43.096 65 50 65 C 56.904 65 62.5 52.464 62.5 37 C 62.5 21.536 56.904 9 50 9 Z"></path>
+        </svg>
+        {{.}}
+      </span>
+      {{end}}
+    </legend>
+    <div>
+      {{range .Categories}}
+      <div>
+        <label for="category_id-{{.Id}}">
+          <input type="radio" id="category_id-{{.Id}}" name="category_id" value="{{.Id}}" {{if eq $.CategoryId .Id}}checked{{end}}>
+          {{.Name}}
+        </label>
+      </div>
+      {{end}}
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>
+      <span>Maßeinheiten</span>
+      <span>
+        <svg viewBox="0 0 100 100" width="0.75em" height="0.75em" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+          <path d="M 100 50 C 100 77.614 77.614 100 50 100 C 22.386 100 0 77.614 0 50 C 0 22.386 22.386 0 50 0 C 77.614 0 100 22.386 100 50 Z M 50 72 C 44.477 72 40 76.477 40 82 C 40 87.523 44.477 92 50 92 C 55.523 92 60 87.523 60 82 C 60 76.477 55.523 72 50 72 Z M 50 9 C 43.096 9 37.5 21.536 37.5 37 C 37.5 52.464 43.096 65 50 65 C 56.904 65 62.5 52.464 62.5 37 C 62.5 21.536 56.904 9 50 9 Z"></path>
+        </svg>
+        Maßeinheit wählen
+      </span>
+    </legend>
+    <div>
+      <div>
+        <label for="unit-1">
+          <input type="radio" id="unit-1" name="unit_id" value="1">
+          Stück
+        </label>
+      </div>
+
+      <div>
+        <label for="unit-2">
+          <input type="radio" id="unit-2" name="unit_id" value="2">
+          Kilogramm
+        </label>
+      </div>
+
+      <div>
+        <label for="unit-3">
+          <input type="radio" id="unit-3" name="unit_id" value="3">
+          Gramm
+        </label>
+      </div>
+
+      <div>
+        <label for="unit-4">
+          <input type="radio" id="unit-4" name="unit_id" value="4">
+          Liter
+        </label>
+      </div>
+
+      <div>
+        <label for="unit-5">
+          <input type="radio" id="unit-5" name="unit_id" value="5">
+          Milliliter
+        </label>
+      </div>
+    </div>
+  </fieldset>
 
   <div>
-    <input type="radio" id="category-1" name="category_id" value="1">
-    <label for="category-1">Obst & Gemüse</label>
+    <label for="amount">
+      <span>Menge</span>
+      <span>
+        <svg viewBox="0 0 100 100" width="0.75em" height="0.75em" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+          <path d="M 100 50 C 100 77.614 77.614 100 50 100 C 22.386 100 0 77.614 0 50 C 0 22.386 22.386 0 50 0 C 77.614 0 100 22.386 100 50 Z M 50 72 C 44.477 72 40 76.477 40 82 C 40 87.523 44.477 92 50 92 C 55.523 92 60 87.523 60 82 C 60 76.477 55.523 72 50 72 Z M 50 9 C 43.096 9 37.5 21.536 37.5 37 C 37.5 52.464 43.096 65 50 65 C 56.904 65 62.5 52.464 62.5 37 C 62.5 21.536 56.904 9 50 9 Z"></path>
+        </svg>
+        Menge angeben
+      </span>
+    </label>
+    <input id="amount" type="text" name="amount" inputmode="numeric" pattern="[0-9]*">
   </div>
 
   <div>
-    <input type="radio" id="category-2" name="category_id" value="2">
-    <label for="category-2">Kühlregal</label>
+    <a href="/plan">Abbrechen</a>
+    <button type="submit">Hinzufügen</button>
   </div>
-
-  <div>
-    <input type="radio" id="category-3" name="category_id" value="3">
-    <label for="category-3">Theke</label>
-  </div>
-
-  <div>
-    <input type="radio" id="category-4" name="category_id" value="4">
-    <label for="category-4">Tiefkühlregal</label>
-  </div>
-
-  <div>
-    <input type="radio" id="category-5" name="category_id" value="5">
-    <label for="category-5">Haushalt</label>
-  </div>
-
-  <div>
-    <input type="radio" id="category-6" name="category_id" value="6">
-    <label for="category-6">Verpackt</label>
-  </div>
-
-  <div>
-    <input type="radio" id="category-7" name="category_id" value="7">
-    <label for="category-7">Getränke</label>
-  </div>
-
-  <div>
-    <input type="radio" id="category-9" name="category_id" value="9">
-    <label for="category-9">Sonstiges</label>
-  </div>
-
-  <p>Maßeinheit</p>
-
-  <div>
-    <input type="radio" id="unit-1" name="unit_id" value="1">
-    <label for="unit-1">Stück</label>
-  </div>
-
-  <div>
-    <input type="radio" id="unit-2" name="unit_id" value="2">
-    <label for="unit-2">Kilogramm</label>
-  </div>
-
-  <div>
-    <input type="radio" id="unit-3" name="unit_id" value="3">
-    <label for="unit-3">Dekagramm</label>
-  </div>
-
-  <div>
-    <input type="radio" id="unit-4" name="unit_id" value="4">
-    <label for="unit-4">Gramm</label>
-  </div>
-
-  <div>
-    <label for="name">Menge</label>
-    <input id="name" inputmode="numeric" pattern="[0-9]*" type="text" name="amount">
-  </div>
-
-  <a href="/plan">Abbrechen</a>
-  <button type="submit">Hinzufügen</button>
 </form>
 {{end}}
