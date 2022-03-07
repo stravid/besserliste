@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+	"crypto/rand"
+	"encoding/base64"
 
 	"github.com/golangcollege/sessions"
 	_ "github.com/mattn/go-sqlite3"
@@ -26,6 +27,34 @@ import (
 
 type contextKey string
 const contextKeyCurrentUser = contextKey("currentUser")
+
+type UnitOption struct {
+	Name string
+	Id string
+}
+
+var unitOptions = []UnitOption{
+	{
+		Name: "Stück",
+		Id: "pieces",
+	},
+	{
+		Name: "Gramm",
+		Id: "g",
+	},
+	{
+		Name: "Kilogramm",
+		Id: "kg",
+	},
+	{
+		Name: "Milliliter",
+		Id: "ml",
+	},
+	{
+		Name: "Liter",
+		Id: "l",
+	},
+}
 
 func (env *Environment) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +105,7 @@ func (env *Environment) isAuthenticated(r *http.Request) bool {
 type Environment struct {
 	queries queries.Queries
 	session *sessions.Session
+	db *sql.DB
 }
 
 type Configuration struct {
@@ -104,11 +134,10 @@ func main() {
 	session := sessions.New([]byte(configuration.Secret))
 	session.Lifetime = 48 * time.Hour
 
-	rand.Seed(time.Now().UnixNano())
-
 	env := &Environment{
 		queries: queries.Build(db),
 		session: session,
+		db: db,
 	}
 
 	fileServer := http.FileServer(http.FS(web.Static))
@@ -214,16 +243,11 @@ func (env *Environment) LogoutRoute(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func randSeq(n int) string {
-    b := make([]rune, n)
-    for i := range b {
-        b[i] = letters[rand.Intn(len(letters))]
-    }
-    return string(b)
+func IdempotencyKey() string {
+	key := make([]byte, 32)
+	_, _ = rand.Read(key)
+	return base64.RawURLEncoding.EncodeToString(key)[0:32]
 }
-
 
 func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 	files := []string{
@@ -234,7 +258,7 @@ func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 	products := []string{}
 
 	for i := 0; i < 1000; i++ {
-	  products = append(products, randSeq(10))
+	  products = append(products, IdempotencyKey())
 	}
 
 	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
@@ -291,19 +315,94 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 		})
 	}
 
+	unitSet := map[string]bool{}
+	for _, unit := range unitOptions {
+		unitSet[unit.Id] = true
+	}
+
+	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
+
 	if r.Method == http.MethodPost {
 		errors := make(map[string]string)
+		idempotencyKey := r.PostForm.Get("_idempotency_key")
 		name := strings.TrimSpace(r.PostForm.Get("name"))
 		categoryId := r.PostForm.Get("category_id")
+		unitId := r.PostForm.Get("unit_id")
+		amount := r.PostForm.Get("amount")
+		amountInteger, amountErr := strconv.Atoi(amount)
 
 		if name == "" {
-			errors["name"] = "Name eingeben"
+			errors["name"] = "Name angeben"
 		} else if utf8.RuneCountInString(name) > 40 {
-			errors["name"] = "Kürzeren Namen eingeben (maximal 40 Zeichen)"
+			errors["name"] = "Kürzeren Namen angeben (maximal 40 Zeichen)"
 		}
 
 		if !categorySet[categoryId] {
 			errors["category_id"] = "Kategorie wählen"
+		}
+
+		if !unitSet[unitId] {
+			errors["unit_id"] = "Maßeinheit wählen"
+		}
+
+		dimension := "dimensionless"
+		quantity := amountInteger
+
+		if amount == "" {
+			errors["amount"] = "Menge angeben"
+		} else if amountErr != nil {
+			errors["amount"] = "Zahl eingeben"
+		} else {
+			if unitId == "ml" {
+				dimension = "volume"
+				quantity = amountInteger
+
+				if quantity < 1 {
+					errors["amount"] = "Größere Menge angeben (kleinste Menge ist 1)"
+				} else if amountInteger > 10000 {
+					errors["amount"] = "Kleinere Menge angeben (größte Menge ist 10.000)"
+				}
+			}
+			if unitId == "l" {
+				dimension = "volume"
+				quantity = amountInteger * 1000
+
+				if quantity < 1 {
+					errors["amount"] = "Größere Menge angeben (kleinste Menge ist 1)"
+				} else if amountInteger > 10000 {
+					errors["amount"] = "Kleinere Menge angeben (größte Menge ist 10)"
+				}
+			}
+			if unitId == "g" {
+				dimension = "mass"
+				quantity = amountInteger
+
+				if quantity < 1 {
+					errors["amount"] = "Größere Menge angeben (kleinste Menge ist 1)"
+				} else if amountInteger > 10000 {
+					errors["amount"] = "Kleinere Menge angeben (größte Menge ist 10.000)"
+				}
+			}
+			if unitId == "kg" {
+				dimension = "mass"
+				quantity = amountInteger * 1000
+
+				if quantity < 1 {
+					errors["amount"] = "Größere Menge angeben (kleinste Menge ist 1)"
+				} else if amountInteger > 10000 {
+					errors["amount"] = "Kleinere Menge angeben (größte Menge ist 10)"
+				}
+			}
+			if unitId == "pieces" {
+				dimension = "dimensionless"
+				quantity = amountInteger
+
+				if quantity < 1 {
+					errors["amount"] = "Größere Menge angeben (kleinste Menge ist 1)"
+				} else if amountInteger > 10000 {
+					errors["amount"] = "Kleinere Menge angeben (größte Menge ist 10.000)"
+				}
+			}
 		}
 
 		if len(errors) > 0 {
@@ -312,19 +411,26 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 				"layouts/internal.html",
 			}
 
-			user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
 			data := struct{
 				CurrentUser types.User
 				Categories []CategoryOption
 				Name string
 				CategoryId string
+				UnitId string
+				Amount string
+				IdempotencyKey string
 				FormErrors map[string]string
+				UnitOptions []UnitOption
 			} {
 				CurrentUser: user,
 				Categories: categoryOptions,
 				Name: name,
 				CategoryId: categoryId,
+				Amount: amount,
+				IdempotencyKey: idempotencyKey,
 				FormErrors: errors,
+				UnitOptions: unitOptions,
+				UnitId: unitId,
 			}
 
 			ts, err := template.ParseFS(web.Templates, files...)
@@ -341,6 +447,120 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 		} else {
+			tx, err := env.db.Begin()
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			defer tx.Rollback()
+
+			result, err := tx.Exec("INSERT INTO products (category_id, name, dimension) VALUES (?, ?, ?)", categoryId, name, dimension)
+			if err != nil {
+				if err.Error() == "UNIQUE constraint failed: products.name" {
+					errors["name"] = "Anderen Namen angeben (ist bereits in Verwendung)"
+
+					files := []string{
+						"screens/add_product.html",
+						"layouts/internal.html",
+					}
+
+					data := struct{
+						CurrentUser types.User
+						Categories []CategoryOption
+						Name string
+						CategoryId string
+						UnitId string
+						Amount string
+						IdempotencyKey string
+						FormErrors map[string]string
+						UnitOptions []UnitOption
+					} {
+						CurrentUser: user,
+						Categories: categoryOptions,
+						Name: name,
+						CategoryId: categoryId,
+						Amount: amount,
+						IdempotencyKey: idempotencyKey,
+						FormErrors: errors,
+						UnitOptions: unitOptions,
+						UnitId: unitId,
+					}
+
+					ts, err := template.ParseFS(web.Templates, files...)
+					if err != nil {
+						log.Println(err.Error())
+						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						return
+					}
+
+					err = ts.Execute(w, data)
+					if err != nil {
+						log.Println(err.Error())
+						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						return
+					}
+					return
+				} else {
+					log.Println(err.Error())
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
+			}
+			productId, err := result.LastInsertId()
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			result, err = tx.Exec("INSERT INTO items (product_id, quantity, state) VALUES (?, ?, 'added')", productId, quantity)
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			itemId, err := result.LastInsertId()
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			_, err = tx.Exec("INSERT INTO product_changes (product_id, user_id, category_id, name, dimension, recorded_at) VALUES (?, ?, ?, ?, ?, datetime('now'))", productId, user.Id, categoryId, name, dimension)
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, quantity, state, recorded_at) VALUES (?, ?, ?, 'added', datetime('now'))", itemId, user.Id, quantity)
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
+			if err != nil {
+				if (err.Error() == "UNIQUE constraint failed: idempotency_keys.key") {
+					http.Redirect(w, r, "/plan", http.StatusSeeOther)
+					return
+				} else {
+					log.Println(err.Error())
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
+			}
+
+			err = tx.Commit()
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
 			http.Redirect(w, r, "/plan", http.StatusSeeOther)
 		}
 	} else {
@@ -351,18 +571,25 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 			"layouts/internal.html",
 		}
 
-		user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
 		data := struct{
 			CurrentUser types.User
 			Categories []CategoryOption
 			Name string
 			CategoryId string
+			UnitId string
+			Amount string
+			IdempotencyKey string
 			FormErrors map[string]string
+			UnitOptions []UnitOption
 		} {
 			CurrentUser: user,
 			Categories: categoryOptions,
 			Name: name,
 			CategoryId: "",
+			Amount: "",
+			UnitOptions: unitOptions,
+			UnitId: "",
+			IdempotencyKey: IdempotencyKey(),
 		}
 
 		ts, err := template.ParseFS(web.Templates, files...)

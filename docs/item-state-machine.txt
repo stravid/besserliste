@@ -1,0 +1,5 @@
+initial => "added";
+"added" => "gathered": "check";
+"gathered" => "added": "undo";
+"added" => "removed": "remove";
+"removed" => "added": "undo";

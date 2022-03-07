@@ -1,73 +1,51 @@
 [categories]
 id
 name
-icon
-color
 
 [users]
 id
 name
 email
 
-[units]
-id
-name
-minimum
-maximum
-step_size
-default
-
 [products]
 id
 category_id
-default_unit_id
 name
-alternative_to_id
+dimension
 
 [items]
 id
 product_id
-unit_id
+quantity
 amount
 state
 
 [item_changes]
 id
 user_id
+item_id
+quantity
+state
 recorded_at
-old_unit_id
-old_amount
-old_state
-new_unit_id
-new_amount
-new_state
 
 [product_changes]
 id
 user_id
+product_id
+category_id
+name
+dimension
 recorded_at
-old_category_id
-old_default_unit_id
-old_name
-old_alternative_to_id
-new_category_id
-new_default_unit_id
-new_name
-old_alternative_to_id
+
+[idempotency_keys]
+key
+processed_at
 
 products:category_id -- categories:id
-products:default_unit_id -- units:id
-products:alternative_to_id -- products:id
 items:product_id -- products:id
-items:unit_id -- units:id
 item_changes:user_id -- users:id
-item_changes:old_unit_id -- units:id
-item_changes:new_unit_id -- units:id
+item_changes:item_id -- items:id
 product_changes:user_id -- users:id
-product_changes:old_category_id -- categories:id
-product_changes:new_category_id -- categories:id
-product_changes:old_default_unit_id -- units:id
-product_changes:new_default_unit_id -- units:id
-product_changes:old_alternative_to_id -- products:id
-product_changes:new_alternative_to_id -- products:id
+product_changes:product-id -- products:id
+product_changes:category_id -- categories:id
 
