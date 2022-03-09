@@ -3,31 +3,30 @@
 {{define "title"}}Plan{{end}}
 
 {{define "main"}}
-<form action="/add-product" method="GET">
+<form action="/add-product" method="GET" autocomplete="off">
   <input id="name" type="text" name="name">
   <button type="submit">Hinzufügen</button>
-</form>
 
 <p class="suggestions">
   {{range .Products}}
-  <a href="/add-item?product-id={{.}}" data-name="{{.}}">{{.}}</a>
+  <a href="/add-item?product-id={{.Id}}" data-name="{{.SearchName}}">{{.Name}}</a>
   {{end}}
 </p>
 
 <hr>
 
 <ol>
-  <li>Äpfel</li>
-  <li>Brot</li>
-  <li>Apfelsaft</li>
-  <li>Faschiertes</li>
+  {{range .AddedProducts}}
+  <li>{{.FormattedQuantity}} {{.Name}}</li>
+  {{end}}
 </ol>
+</form>
 
 <script type="text/javascript">
   document.querySelector('#name').addEventListener('input', function() {
     var currentValue = document.querySelector('#name').value;
     var all = document.querySelectorAll(".suggestions a");
-    var visible = document.querySelectorAll(".suggestions a[data-name*='" + currentValue + "']");
+    var visible = document.querySelectorAll(".suggestions a[data-name*='" + currentValue.toLowerCase() + "']");
 
     for (var i = 0; i < all.length; i++) {
       all[i].style.display = 'none';

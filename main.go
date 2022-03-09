@@ -250,24 +250,34 @@ func IdempotencyKey() string {
 }
 
 func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
+	addedProducts, err := env.queries.GetAddedProducts()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	products, err := env.queries.GetProducts()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	files := []string{
 		"screens/plan.html",
 		"layouts/internal.html",
 	}
 
-	products := []string{}
-
-	for i := 0; i < 1000; i++ {
-	  products = append(products, IdempotencyKey())
-	}
-
 	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
 	data := struct{
 		CurrentUser types.User
-		Products []string
+		Products []types.Product
+		AddedProducts []types.AddedProduct
 	} {
 		CurrentUser: user,
 		Products: products,
+		AddedProducts: addedProducts,
 	}
 
 	ts, err := template.ParseFS(web.Templates, files...)
