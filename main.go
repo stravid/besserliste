@@ -235,6 +235,13 @@ func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	removedItems, err := env.queries.GetRemovedItems()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	products, err := env.queries.GetProducts()
 	if err != nil {
 		log.Println(err.Error())
@@ -252,11 +259,13 @@ func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 		CurrentUser types.User
 		Products []types.Product
 		AddedItems []types.AddedItem
+		RemovedItems []types.AddedItem
 		IdempotencyKey string
 	} {
 		CurrentUser: user,
 		Products: products,
 		AddedItems: addedItems,
+		RemovedItems: removedItems,
 		IdempotencyKey: IdempotencyKey(),
 	}
 

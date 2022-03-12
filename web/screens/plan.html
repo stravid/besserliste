@@ -10,6 +10,7 @@
 <form action="/add-product" method="GET" autocomplete="off">
   <input id="name" type="text" name="name">
   <button type="submit">Hinzufügen</button>
+</form>
 
 <p class="suggestions">
   {{range .Products}}
@@ -24,7 +25,15 @@
   <li>{{.FormattedQuantity}} {{.FormattedName}} <button form="remove-form" name="item_id" value="{{.Id}}" type="submit">Entfernen</button></li>
   {{end}}
 </ol>
-</form>
+
+{{if .RemovedItems}}
+<h2>Entfernt</h2>
+<ol>
+  {{range .RemovedItems}}
+  <li>{{.FormattedQuantity}} {{.FormattedName}}</li>
+  {{end}}
+</ol>
+{{end}}
 
 <script type="text/javascript">
   document.querySelector('#name').addEventListener('input', function() {
