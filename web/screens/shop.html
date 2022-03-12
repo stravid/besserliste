@@ -3,12 +3,12 @@
 {{define "title"}}Shop{{end}}
 
 {{define "main"}}
-<form action="/check-item" method="POST">
-<ol>
-  <li>Äpfel<button name="item_id" value="1" type="submit">Abhaken</button></form></li>
-  <li>Brot<button name="item_id" value="2" type="submit">Abhaken</button></form></li>
-  <li>Apfelsaft<button name="item_id" value="3" type="submit">Abhaken</button></form></li>
-  <li>Faschiertes<button name="item_id" value="4" type="submit">Abhaken</button></form></li>
-</ol>
+<form id="check-form" action="/check-item" method="POST">
 </form>
+
+<ol>
+  {{range .AddedItems}}
+  <li>{{.FormattedQuantity}} {{.FormattedName}} <button form="check-form" name="item_id" value="{{.Id}}" type="submit">Abhaken</button></li>
+  {{end}}
+</ol>
 {{end}}

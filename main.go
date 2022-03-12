@@ -698,9 +698,26 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
+	addedItems, err := env.queries.GetRemainingItemsByAlphabet()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	files := []string{
 		"screens/shop.html",
 		"layouts/internal.html",
+	}
+
+	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
+	data := struct{
+		CurrentUser types.User
+		Products []types.Product
+		AddedItems []types.AddedItem
+	} {
+		CurrentUser: user,
+		AddedItems: addedItems,
 	}
 
 	ts, err := template.ParseFS(web.Templates, files...)
@@ -708,13 +725,6 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 		log.Println(err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
-	}
-
-	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
-	data := struct{
-		CurrentUser types.User
-	} {
-		CurrentUser: user,
 	}
 
 	err = ts.Execute(w, data)
