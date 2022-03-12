@@ -580,25 +580,66 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 
 	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
 
+	renderForm := func(quantity string, unitId string, idempotencyKey string, formErrors map[string]string) {
+		files := []string{
+			"screens/add_item.html",
+			"layouts/internal.html",
+		}
+
+		data := struct{
+			CurrentUser types.User
+			Product types.SelectedProduct
+			UnitOptions []FormOption
+			IdempotencyKey string
+			FormErrors map[string]string
+			Quantity string
+			UnitId string
+		} {
+			CurrentUser: user,
+			Product: *product,
+			UnitOptions: unitOptions,
+			Quantity: quantity,
+			UnitId: unitId,
+			IdempotencyKey: idempotencyKey,
+			FormErrors: formErrors,
+		}
+
+		ts, err := template.ParseFS(web.Templates, files...)
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		err = ts.Execute(w, data)
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	if r.Method == http.MethodPost {
-		errors := make(map[string]string)
+		formErrors := make(map[string]string)
 		idempotencyKey := r.PostForm.Get("_idempotency_key")
 		unitId := r.PostForm.Get("unit_id")
 		amount := r.PostForm.Get("quantity")
 		parsedQuantity, amountErr := strconv.ParseFloat(strings.Replace(amount, ",", ".", -1), 64)
-		var dimension types.Dimension
-		var baseQuantity int64
 
 		if !unitSet[unitId] {
-			errors["unit_id"] = "Maßeinheit wählen"
+			formErrors["unit_id"] = "Maßeinheit wählen"
 		}
 
 		if amount == "" {
-			errors["quantity"] = "Menge angeben"
+			formErrors["quantity"] = "Menge angeben"
 		} else if amountErr != nil {
-			errors["quantity"] = "Zahl angeben"
-		} else {
+			formErrors["quantity"] = "Zahl angeben"
+		}
+
+		if len(formErrors) == 0 {
 			unit := types.Unit{}
+			dimension := types.Dimension{}
+
 			for _, u := range units {
 				if i, _ := strconv.Atoi(unitId); i == u.Id {
 					unit = u
@@ -615,147 +656,103 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			parsedBaseQuantity := parsedQuantity * unit.ConversionToBase
-			baseQuantity = int64(parsedBaseQuantity)
-
-			if parsedBaseQuantity != float64(baseQuantity) {
-				errors["quantity"] = "Ganze Zahl angeben"
-			}
-
-			if baseQuantity < 1 {
-				errors["amount"] = "Größere Menge angeben (kleinste Menge ist 1)"
-			}
-
-			if baseQuantity > 10000 {
-				errors["amount"] = fmt.Sprintf("Kleinere Menge angeben (größte Menge ist %d)", int64(unit.ConversionFromBase * 10000.0))
-			}
-		}
-
-		if len(errors) > 0 {
-			files := []string{
-				"screens/add_item.html",
-				"layouts/internal.html",
-			}
-
-			data := struct{
-				CurrentUser types.User
-				Product types.SelectedProduct
-				UnitOptions []FormOption
-				Quantity string
-				UnitId string
-				IdempotencyKey string
-				FormErrors map[string]string
-			} {
-				CurrentUser: user,
-				Product: *product,
-				UnitOptions: unitOptions,
-				Quantity: amount,
-				UnitId: unitId,
-				IdempotencyKey: idempotencyKey,
-				FormErrors: errors,
-			}
-
-			ts, err := template.ParseFS(web.Templates, files...)
+			startQuantiy := int64(0)
+			itemId := int64(0)
+			item, err := env.queries.GetAddedItemByProductDimension(product.Id, dimension.Id)
 			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-
-			err = ts.Execute(w, data)
-			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-		} else {
-			tx, err := env.db.Begin()
-			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-
-			defer tx.Rollback()
-
-			result, err := tx.Exec("INSERT INTO items (product_id, dimension_id, quantity, state) VALUES (?, ?, ?, 'added')", productId, dimension.Id, baseQuantity)
-			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-			itemId, err := result.LastInsertId()
-			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-
-			_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, quantity, state, recorded_at) VALUES (?, ?, ?, 'added', datetime('now'))", itemId, user.Id, baseQuantity)
-			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-
-			_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
-			if err != nil {
-				if (err.Error() == "UNIQUE constraint failed: idempotency_keys.key") {
-					http.Redirect(w, r, "/plan", http.StatusSeeOther)
-					return
-				} else {
+				if !errors.Is(err, sql.ErrNoRows) {
 					log.Println(err.Error())
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 					return
 				}
+			} else {
+				startQuantiy = int64(item.Quantity)
+				itemId = int64(item.Id)
 			}
 
-			err = tx.Commit()
-			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
+			remainingQuanity := int64(10000 - startQuantiy)
+			parsedBaseQuantity := parsedQuantity * unit.ConversionToBase
+			baseQuantity := int64(parsedBaseQuantity)
+
+			if parsedBaseQuantity != float64(baseQuantity) {
+				formErrors["quantity"] = "Ganze Zahl angeben"
 			}
 
-			http.Redirect(w, r, "/plan", http.StatusSeeOther)
+			if baseQuantity < 1 {
+				formErrors["amount"] = "Größere Menge angeben (kleinste Menge ist 1)"
+			}
+
+			if baseQuantity > remainingQuanity {
+				formErrors["amount"] = fmt.Sprintf("Kleinere Menge angeben (größte Menge ist %d)", int64(unit.ConversionFromBase * float64(remainingQuanity)))
+			}
+
+			if len(formErrors) == 0 {
+				tx, err := env.db.Begin()
+				if err != nil {
+					log.Println(err.Error())
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
+				defer tx.Rollback()
+
+				if itemId == 0 {
+					result, err := tx.Exec("INSERT INTO items (product_id, dimension_id, quantity, state) VALUES (?, ?, ?, 'added')", product.Id, dimension.Id, baseQuantity + startQuantiy)
+					if err != nil {
+						log.Println(err.Error())
+						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						return
+					}
+
+					itemId, err = result.LastInsertId()
+					if err != nil {
+						log.Println(err.Error())
+						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						return
+					}
+				} else {
+					_, err := tx.Exec("UPDATE items SET quantity = ? WHERE id = ?", baseQuantity + startQuantiy, item.Id)
+					if err != nil {
+						log.Println(err.Error())
+						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						return
+					}
+				}
+
+				_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, quantity, state, recorded_at) VALUES (?, ?, ?, 'added', datetime('now'))", itemId, user.Id, baseQuantity + startQuantiy)
+				if err != nil {
+					log.Println(err.Error())
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
+
+				_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
+				if err != nil {
+					if (err.Error() == "UNIQUE constraint failed: idempotency_keys.key") {
+						http.Redirect(w, r, "/plan", http.StatusSeeOther)
+						return
+					} else {
+						log.Println(err.Error())
+						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						return
+					}
+				}
+
+				err = tx.Commit()
+				if err != nil {
+					log.Println(err.Error())
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
+
+				http.Redirect(w, r, "/plan", http.StatusSeeOther)
+			} else {
+				renderForm(amount, unitId, idempotencyKey, formErrors)
+			}
+		} else {
+			renderForm(amount, unitId, idempotencyKey, formErrors)
 		}
 	} else {
-		files := []string{
-			"screens/add_item.html",
-			"layouts/internal.html",
-		}
-
-		data := struct{
-			CurrentUser types.User
-			Product types.SelectedProduct
-			UnitOptions []FormOption
-			Quantity string
-			UnitId string
-			IdempotencyKey string
-			FormErrors map[string]string
-		} {
-			CurrentUser: user,
-			Product: *product,
-			UnitOptions: unitOptions,
-			Quantity: "",
-			UnitId: "",
-			IdempotencyKey: IdempotencyKey(),
-			FormErrors: make(map[string]string),
-		}
-
-		ts, err := template.ParseFS(web.Templates, files...)
-		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		err = ts.Execute(w, data)
-		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
+		renderForm("", "", IdempotencyKey(), make(map[string]string))
 	}
 }
 
