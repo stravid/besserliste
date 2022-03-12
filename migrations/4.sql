@@ -15,6 +15,8 @@ CREATE TABLE units (
   FOREIGN KEY(dimension_id) REFERENCES dimensions(id)
 );
 
+CREATE UNIQUE INDEX idx_units_to_base ON units(dimension_id, conversion_to_base);
+CREATE UNIQUE INDEX idx_units_from_base ON units(dimension_id, conversion_from_base);
 CREATE UNIQUE INDEX idx_ordering_units ON units(ordering, dimension_id);
 
 CREATE TABLE products (
