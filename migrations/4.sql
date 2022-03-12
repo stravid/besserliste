@@ -9,14 +9,12 @@ CREATE TABLE units (
   dimension_id INTEGER NOT NULL,
   name_singular TEXT NOT NULL UNIQUE CHECK(length(name_singular) <= 20),
   name_plural TEXT NOT NULL UNIQUE CHECK(length(name_plural) <= 20),
-  is_base_unit BOOLEAN NOT NULL,
   conversion_to_base DECIMAL NOT NULL CHECK(conversion_to_base > 0),
   conversion_from_base DECIMAL NOT NULL CHECK(conversion_from_base > 0),
   ordering INTEGER NOT NULL,
   FOREIGN KEY(dimension_id) REFERENCES dimensions(id)
 );
 
-CREATE UNIQUE INDEX idx_base_units ON units(dimension_id) WHERE is_base_unit = TRUE;
 CREATE UNIQUE INDEX idx_ordering_units ON units(ordering, dimension_id);
 
 CREATE TABLE products (
@@ -93,16 +91,15 @@ INSERT INTO units (
   dimension_id,
   name_singular,
   name_plural,
-  is_base_unit,
   conversion_to_base,
   conversion_from_base,
   ordering
 ) VALUES
-  (1, 'Stück', 'Stück', TRUE, 1.0, 1.0, 1),
-  (2, 'g', 'g', TRUE, 1.0, 1.0, 1),
-  (2, 'kg', 'kg', FALSE, 1000.0, 0.001, 2),
-  (3, 'ml', 'ml', TRUE, 1.0, 1.0, 1),
-  (3, 'l', 'l', FALSE, 1000.0, 0.001, 2),
-  (4, 'Dose', 'Dosen', TRUE, 1.0, 1.0, 1),
-  (5, 'Flasche', 'Flaschen', TRUE, 1.0, 1.0, 1)
+  (1, 'Stück', 'Stück', 1.0, 1.0, 1),
+  (2, 'g', 'g', 1.0, 1.0, 1),
+  (2, 'kg', 'kg', 1000.0, 0.001, 2),
+  (3, 'ml', 'ml', 1.0, 1.0, 1),
+  (3, 'l', 'l', 1000.0, 0.001, 2),
+  (4, 'Dose', 'Dosen', 1.0, 1.0, 1),
+  (5, 'Flasche', 'Flaschen', 1.0, 1.0, 1)
 ;

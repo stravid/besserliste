@@ -33,7 +33,6 @@ type Unit struct {
 	Id int `json:"id"`
 	NameSingular string `json:"name_singular"`
 	NamePlural string `json:"name_plural"`
-	IsBaseUnit bool `json:"is_base_unit"`
 	ConversionToBase float64 `json:"conversion_to_base"`
 	ConversionFromBase float64 `json:"conversion_from_base"`
 }

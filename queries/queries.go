@@ -61,7 +61,6 @@ func Build(db *sql.DB) Queries {
 					'id', units.id,
 					'name_singular', units.name_singular,
 					'name_plural', units.name_plural,
-					'is_base_unit', CASE units.is_base_unit WHEN 1 THEN json('true') ELSE json('false') END,
 					'conversion_to_base', units.conversion_to_base,
 					'conversion_from_base', units.conversion_from_base
 				) AS unit
@@ -107,7 +106,6 @@ func Build(db *sql.DB) Queries {
 							'id', units.id,
 							'name_singular', units.name_singular,
 							'name_plural', units.name_plural,
-							'is_base_unit', CASE units.is_base_unit WHEN 1 THEN json('true') ELSE json('false') END,
 							'conversion_to_base', units.conversion_to_base,
 							'conversion_from_base', units.conversion_from_base
 						) AS unit
@@ -162,7 +160,6 @@ func Build(db *sql.DB) Queries {
 						'id', units.id,
 						'name_singular', units.name_singular,
 						'name_plural', units.name_plural,
-						'is_base_unit', CASE units.is_base_unit WHEN 1 THEN json('true') ELSE json('false') END,
 						'conversion_to_base', units.conversion_to_base,
 						'conversion_from_base', units.conversion_from_base
 					) AS unit
@@ -226,7 +223,6 @@ func Build(db *sql.DB) Queries {
 							'id', units.id,
 							'name_singular', units.name_singular,
 							'name_plural', units.name_plural,
-							'is_base_unit', CASE units.is_base_unit WHEN 1 THEN json('true') ELSE json('false') END,
 							'conversion_to_base', units.conversion_to_base,
 							'conversion_from_base', units.conversion_from_base
 						) AS unit
