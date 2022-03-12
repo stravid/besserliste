@@ -7,17 +7,31 @@ id
 name
 email
 
+[dimensions]
+id
+name
+ordering
+
+[units]
+id
+dimension_id
+singular_name
+plural_name
+is_base_unit
+conversion_to_base
+conversion_from_base
+ordering
+
 [products]
 id
 category_id
 name
-dimension
 
 [items]
 id
 product_id
+dimension_id
 quantity
-amount
 state
 
 [item_changes]
@@ -34,18 +48,25 @@ user_id
 product_id
 category_id
 name
-dimension
 recorded_at
 
 [idempotency_keys]
 key
 processed_at
 
+[dimensions_products]
+dimension_id
+product_id
+
 products:category_id -- categories:id
 items:product_id -- products:id
+items:dimension_id -- dimensions:id
 item_changes:user_id -- users:id
 item_changes:item_id -- items:id
 product_changes:user_id -- users:id
 product_changes:product-id -- products:id
 product_changes:category_id -- categories:id
+units:dimension_id -- dimensions:id
+dimensions_products:dimension_id -- dimensions:id
+dimensions_products:product_id -- products:id
 

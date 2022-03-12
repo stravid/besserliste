@@ -1,29 +1,61 @@
 package types
 
 import (
-    "testing"
+	"testing"
 )
 
 func TestFormattedQuantity(t *testing.T) {
-    if r := FormattedQuantity(1, "dimensionless"); r != "1" {
-        t.Fatalf("dimensionless is not formatted (%s instead of %s)", r, "1")
+    dimensionlessUnits := []Unit{
+        {
+            Id: 1,
+            SingularName: "Flasche",
+            PluralName: "Flaschen",
+            IsBaseUnit: true,
+            ConversionToBase: 1,
+            ConversionFromBase: 1,
+        },
     }
-    if r := FormattedQuantity(1000, "volume"); r != "1 l" {
-        t.Fatalf("one liter (%s instead of %s)", r, "1 l")
+
+    volumeUnits := []Unit{
+        {
+            Id: 2,
+            SingularName: "ml",
+            PluralName: "ml",
+            IsBaseUnit: true,
+            ConversionToBase: 1,
+            ConversionFromBase: 1,
+        },
+        {
+            Id: 3,
+            SingularName: "l",
+            PluralName: "l",
+            IsBaseUnit: false,
+            ConversionToBase: 1000,
+            ConversionFromBase: 0.001,
+        },
     }
-    if r := FormattedQuantity(330, "volume"); r != "330 ml" {
-        t.Fatalf("less than a liter (%s instead of %s)", r, "330 ml")
+
+    if r := FormattedQuantity(1, dimensionlessUnits); r != "1 Flasche" {
+        t.Fatalf("%s instead of %s", r, "1 Flasche")
     }
-    if r := FormattedQuantity(1250, "volume"); r != "1,25 l" {
-        t.Fatalf("more than a liter (%s instead of %s)", r, "1,25 l")
+
+    if r := FormattedQuantity(3, dimensionlessUnits); r != "3 Flaschen" {
+        t.Fatalf("%s instead of %s", r, "3 Flaschen")
     }
-    if r := FormattedQuantity(1000, "mass"); r != "1 kg" {
-        t.Fatalf("one kg (%s instead of %s)", r, "1 kg")
+
+    if r := FormattedQuantity(1, volumeUnits); r != "1 ml" {
+        t.Fatalf("%s instead of %s", r, "1 ml")
     }
-    if r := FormattedQuantity(200, "mass"); r != "200 g" {
-        t.Fatalf("less than a kg (%s instead of %s)", r, "200 g")
+
+    if r := FormattedQuantity(33, volumeUnits); r != "33 ml" {
+        t.Fatalf("%s instead of %s", r, "33 ml")
     }
-    if r := FormattedQuantity(1234, "mass"); r != "1,234 kg" {
-        t.Fatalf("more than a kg (%s instead of %s)", r, "1,234 kg")
+
+    if r := FormattedQuantity(1000, volumeUnits); r != "1 l" {
+        t.Fatalf("%s instead of %s", r, "1 l")
+    }
+
+    if r := FormattedQuantity(1250, volumeUnits); r != "1,25 l" {
+        t.Fatalf("%s instead of %s", r, "1,25 l")
     }
 }

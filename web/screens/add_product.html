@@ -60,8 +60,8 @@
 
   <fieldset>
     <legend>
-      <span>Maßeinheiten</span>
-      {{with .FormErrors.unit_id}}
+      <span>Größenordnungen</span>
+      {{with .FormErrors.dimension_id}}
       <span>
         <svg viewBox="0 0 100 100" width="0.75em" height="0.75em" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
           <path d="M 100 50 C 100 77.614 77.614 100 50 100 C 22.386 100 0 77.614 0 50 C 0 22.386 22.386 0 50 0 C 77.614 0 100 22.386 100 50 Z M 50 72 C 44.477 72 40 76.477 40 82 C 40 87.523 44.477 92 50 92 C 55.523 92 60 87.523 60 82 C 60 76.477 55.523 72 50 72 Z M 50 9 C 43.096 9 37.5 21.536 37.5 37 C 37.5 52.464 43.096 65 50 65 C 56.904 65 62.5 52.464 62.5 37 C 62.5 21.536 56.904 9 50 9 Z"></path>
@@ -71,10 +71,10 @@
       {{end}}
     </legend>
     <div>
-      {{range .UnitOptions}}
+      {{range .DimensionOptions}}
       <div>
-        <label for="unit-{{.Id}}">
-          <input type="radio" id="unit-{{.Id}}" name="unit_id" value="{{.Id}}" {{if eq $.UnitId .Id}}checked{{end}}>
+        <label for="dimension-{{.Id}}">
+          <input type="checkbox" id="dimension-{{.Id}}" name="dimension_ids" value="{{.Id}}"{{if (index $.DimensionIds .Id) }}checked{{end}}>
           {{.Name}}
         </label>
       </div>
@@ -83,23 +83,8 @@
   </fieldset>
 
   <div>
-    <label for="amount">
-      <span>Menge</span>
-      {{with .FormErrors.amount}}
-      <span>
-        <svg viewBox="0 0 100 100" width="0.75em" height="0.75em" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
-          <path d="M 100 50 C 100 77.614 77.614 100 50 100 C 22.386 100 0 77.614 0 50 C 0 22.386 22.386 0 50 0 C 77.614 0 100 22.386 100 50 Z M 50 72 C 44.477 72 40 76.477 40 82 C 40 87.523 44.477 92 50 92 C 55.523 92 60 87.523 60 82 C 60 76.477 55.523 72 50 72 Z M 50 9 C 43.096 9 37.5 21.536 37.5 37 C 37.5 52.464 43.096 65 50 65 C 56.904 65 62.5 52.464 62.5 37 C 62.5 21.536 56.904 9 50 9 Z"></path>
-        </svg>
-        {{.}}
-      </span>
-      {{end}}
-    </label>
-    <input id="amount" type="text" name="amount" inputmode="numeric" pattern="[0-9]*" value="{{.Amount}}">
-  </div>
-
-  <div>
     <a href="/plan">Abbrechen</a>
-    <button type="submit">Hinzufügen</button>
+    <button type="submit">Produkt anlegen</button>
   </div>
 </form>
 {{end}}

@@ -17,18 +17,40 @@ type Category struct {
 	Name string
 }
 
-type AddedProduct struct {
-	Id int
-	Name string
-	Quantity int
-	Dimension string
-}
-
 type Product struct {
 	Id int
 	Name string
 	SearchName string
 	Dimension string
+}
+
+type Dimension struct {
+	Id int `json:"id"`
+	Name string `json:"name"`
+	Units []Unit `json:"units"`
+}
+
+type Unit struct {
+	Id int `json:"id"`
+	SingularName string `json:"singular_name"`
+	PluralName string `json:"plural_name"`
+	IsBaseUnit bool `json:"is_base_unit"`
+	ConversionToBase float64 `json:"conversion_to_base"`
+	ConversionFromBase float64 `json:"conversion_from_base"`
+}
+
+type SelectedProduct struct {
+	Id int `json:"id"`
+	Name string `json:"name"`
+	Dimensions []Dimension `json: "dimensions"`
+}
+
+type AddedItem struct {
+	Id int `json:"id"`
+	Name string `json:"name"`
+	Quantity int
+	ProductId int
+	Dimension Dimension `json: "dimension"`
 }
 
 func UserIdFromString(input string) (*int, error) {
@@ -44,24 +66,32 @@ func UserIdFromString(input string) (*int, error) {
 	return &id, nil
 }
 
-func (p *AddedProduct) FormattedQuantity() (string) {
-	return FormattedQuantity(p.Quantity, p.Dimension)
+func (i *AddedItem) FormattedQuantity() (string) {
+	return FormattedQuantity(i.Quantity, i.Dimension.Units)
 }
 
-func FormattedQuantity(quantity int, dimension string) (string) {
-	if dimension == "dimensionless" {
-		return fmt.Sprintf("%d", quantity)
-	} else if dimension == "volume" {
-		if quantity >= 1000 {
-			return strings.Replace(fmt.Sprintf("%s l", strconv.FormatFloat(float64(quantity) / 1000, 'f', -1, 32)), ".", ",", -1)
+func FormattedQuantity(quantity int, units []Unit) (string) {
+	floatQuantity := float64(quantity)
+	var bestFittingUnit Unit
+
+	for _, unit := range units {
+		if bestFittingUnit.Id == 0 {
+			bestFittingUnit = unit
 		} else {
-			return strings.Replace(fmt.Sprintf("%s ml", strconv.FormatFloat(float64(quantity), 'f', -1, 32)), ".", ",", -1)
+			newUnitQuantityIsSmaller := bestFittingUnit.ConversionFromBase * floatQuantity > unit.ConversionFromBase * floatQuantity
+			newUnitQuantityIsBigEnough := unit.ConversionFromBase * floatQuantity >= 1
+			if newUnitQuantityIsSmaller && newUnitQuantityIsBigEnough {
+				bestFittingUnit = unit
+			}
+
 		}
+	}
+
+	formattedQuantity := strings.Replace(strconv.FormatFloat(bestFittingUnit.ConversionFromBase * floatQuantity, 'f', -1, 32), ".", ",", -1)
+
+	if bestFittingUnit.ConversionFromBase * floatQuantity > 1 {
+		return fmt.Sprintf("%s %s", formattedQuantity, bestFittingUnit.PluralName)
 	} else {
-		if quantity >= 1000 {
-			return strings.Replace(fmt.Sprintf("%s kg", strconv.FormatFloat(float64(quantity) / 1000, 'f', -1, 32)), ".", ",", -1)
-		} else {
-			return strings.Replace(fmt.Sprintf("%s g", strconv.FormatFloat(float64(quantity), 'f', -1, 32)), ".", ",", -1)
-		}
+		return fmt.Sprintf("%s %s", formattedQuantity, bestFittingUnit.SingularName)
 	}
 }
