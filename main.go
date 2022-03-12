@@ -137,6 +137,7 @@ func main() {
 	mux.Handle("/add-item", internalHandler(env.AddItemRoute))
 	mux.Handle("/shop", internalHandler(env.ShopRoute))
 	mux.Handle("/check-item", internalHandler(env.CheckItemRoute))
+	mux.Handle("/remove-item", internalHandler(env.RemoveItemRoute))
 
 	err = http.ListenAndServe(":4000", mux)
 	if err != nil {
@@ -251,10 +252,12 @@ func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 		CurrentUser types.User
 		Products []types.Product
 		AddedItems []types.AddedItem
+		IdempotencyKey string
 	} {
 		CurrentUser: user,
 		Products: products,
 		AddedItems: addedItems,
+		IdempotencyKey: IdempotencyKey(),
 	}
 
 	ts, err := template.ParseFS(web.Templates, files...)
@@ -807,5 +810,78 @@ func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/shop", http.StatusSeeOther)
 	} else {
 		http.Redirect(w, r, "/shop", http.StatusSeeOther)
+	}
+}
+
+func (env *Environment) RemoveItemRoute(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
+
+	if r.Method == http.MethodPost {
+		idempotencyKey := r.PostForm.Get("_idempotency_key")
+		itemId, err := strconv.Atoi(r.PostForm.Get("item_id"))
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		item, err := env.queries.GetItem(itemId)
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		tx, err := env.db.Begin()
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		defer tx.Rollback()
+
+		_, err = tx.Exec("UPDATE items SET state = 'removed' WHERE id = ?", item.Id)
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, quantity, state, recorded_at) VALUES (?, ?, ?, 'removed', datetime('now'))", item.Id, user.Id, item.Quantity)
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
+		if err != nil {
+			if (err.Error() == "UNIQUE constraint failed: idempotency_keys.key") {
+				http.Redirect(w, r, "/plan", http.StatusSeeOther)
+				return
+			} else {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, "/plan", http.StatusSeeOther)
+	} else {
+		http.Redirect(w, r, "/plan", http.StatusSeeOther)
 	}
 }

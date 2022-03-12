@@ -3,6 +3,10 @@
 {{define "title"}}Plan{{end}}
 
 {{define "main"}}
+<form id="remove-form" action="/remove-item" method="POST">
+  <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
+</form>
+
 <form action="/add-product" method="GET" autocomplete="off">
   <input id="name" type="text" name="name">
   <button type="submit">Hinzufügen</button>
@@ -17,7 +21,7 @@
 
 <ol>
   {{range .AddedItems}}
-  <li>{{.FormattedQuantity}} {{.FormattedName}}</li>
+  <li>{{.FormattedQuantity}} {{.FormattedName}} <button form="remove-form" name="item_id" value="{{.Id}}" type="submit">Entfernen</button></li>
   {{end}}
 </ol>
 </form>
