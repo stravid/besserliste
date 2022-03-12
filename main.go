@@ -321,10 +321,54 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 
 	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
 
+	renderForm := func(nameSingular string, namePlural string, categoryId string, dimensionIds map[string]bool, idempotencyKey string, formErrors map[string]string) {
+		data := struct{
+				CurrentUser types.User
+				Categories []CategoryOption
+				DimensionOptions []FormOption
+				NameSingular string
+				NamePlural string
+				CategoryId string
+				DimensionIds map[string]bool
+				IdempotencyKey string
+				FormErrors map[string]string
+			} {
+				CurrentUser: user,
+				Categories: categoryOptions,
+				NameSingular: nameSingular,
+				NamePlural: namePlural,
+				CategoryId: categoryId,
+				IdempotencyKey: idempotencyKey,
+				FormErrors: formErrors,
+				DimensionOptions: dimensionOptions,
+				DimensionIds: dimensionIds,
+			}
+
+		files := []string{
+			"screens/add_product.html",
+			"layouts/internal.html",
+		}
+
+		ts, err := template.ParseFS(web.Templates, files...)
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		err = ts.Execute(w, data)
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	if r.Method == http.MethodPost {
-		errors := make(map[string]string)
+		formErrors := make(map[string]string)
 		idempotencyKey := r.PostForm.Get("_idempotency_key")
-		name := strings.TrimSpace(r.PostForm.Get("name"))
+		nameSingular := strings.TrimSpace(r.PostForm.Get("name_singular"))
+		namePlural := strings.TrimSpace(r.PostForm.Get("name_plural"))
 		categoryId := r.PostForm.Get("category_id")
 		dimensionIds := r.PostForm["dimension_ids"]
 
@@ -333,66 +377,33 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 			selectedDimensions[id] = true
 		}
 
-		if name == "" {
-			errors["name"] = "Name angeben"
-		} else if utf8.RuneCountInString(name) > 40 {
-			errors["name"] = "Kürzeren Namen angeben (maximal 40 Zeichen)"
+		if nameSingular == "" {
+			formErrors["name_singular"] = "Namen angeben"
+		} else if utf8.RuneCountInString(nameSingular) > 40 {
+			formErrors["name_singular"] = "Kürzeren Namen angeben (maximal 40 Zeichen)"
+		}
+
+		if namePlural == "" {
+			formErrors["name_plural"] = "Namen angeben"
+		} else if utf8.RuneCountInString(namePlural) > 40 {
+			formErrors["name_plural"] = "Kürzeren Namen angeben (maximal 40 Zeichen)"
 		}
 
 		if !categorySet[categoryId] {
-			errors["category_id"] = "Kategorie wählen"
+			formErrors["category_id"] = "Kategorie wählen"
 		}
 
 		if len(dimensionIds) == 0 {
-			errors["dimension_ids"] = "Größenordnung wählen"
+			formErrors["dimension_ids"] = "Größenordnung wählen"
 		}
 
 		for _, dimensionId := range dimensionIds {
 			if !dimensionSet[dimensionId] {
-				errors["dimension_ids"] = "Größenordnung wählen"
+				formErrors["dimension_ids"] = "Größenordnung wählen"
 			}
 		}
 
-		if len(errors) > 0 {
-			files := []string{
-				"screens/add_product.html",
-				"layouts/internal.html",
-			}
-
-			data := struct{
-				CurrentUser types.User
-				Categories []CategoryOption
-				Name string
-				CategoryId string
-				IdempotencyKey string
-				FormErrors map[string]string
-				DimensionOptions []FormOption
-				DimensionIds map[string]bool
-			} {
-				CurrentUser: user,
-				Categories: categoryOptions,
-				Name: name,
-				CategoryId: categoryId,
-				IdempotencyKey: idempotencyKey,
-				FormErrors: errors,
-				DimensionOptions: dimensionOptions,
-				DimensionIds: selectedDimensions,
-			}
-
-			ts, err := template.ParseFS(web.Templates, files...)
-			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-
-			err = ts.Execute(w, data)
-			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-		} else {
+		if len(formErrors) == 0 {
 			tx, err := env.db.Begin()
 			if err != nil {
 				log.Println(err.Error())
@@ -402,49 +413,15 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 
 			defer tx.Rollback()
 
-			result, err := tx.Exec("INSERT INTO products (category_id, name) VALUES (?, ?)", categoryId, name)
+			result, err := tx.Exec("INSERT INTO products (category_id, name_singular, name_plural) VALUES (?, ?, ?)", categoryId, nameSingular, namePlural)
 			if err != nil {
-				if err.Error() == "UNIQUE constraint failed: products.name" {
-					errors["name"] = "Anderen Namen angeben (ist bereits in Verwendung)"
-
-					files := []string{
-						"screens/add_product.html",
-						"layouts/internal.html",
-					}
-
-					data := struct{
-						CurrentUser types.User
-						Categories []CategoryOption
-						Name string
-						CategoryId string
-						IdempotencyKey string
-						FormErrors map[string]string
-						DimensionOptions []FormOption
-						DimensionIds map[string]bool
-					} {
-						CurrentUser: user,
-						Categories: categoryOptions,
-						Name: name,
-						CategoryId: categoryId,
-						IdempotencyKey: idempotencyKey,
-						FormErrors: errors,
-						DimensionOptions: dimensionOptions,
-						DimensionIds: selectedDimensions,
-					}
-
-					ts, err := template.ParseFS(web.Templates, files...)
-					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-						return
-					}
-
-					err = ts.Execute(w, data)
-					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-						return
-					}
+				if err.Error() == "UNIQUE constraint failed: products.name_singular" {
+					formErrors["name_singular"] = "Anderen Namen angeben (ist bereits in Verwendung)"
+					renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
+					return
+				} else if err.Error() == "UNIQUE constraint failed: products.name_plural" {
+					formErrors["name_plural"] = "Anderen Namen angeben (ist bereits in Verwendung)"
+					renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
 					return
 				} else {
 					log.Println(err.Error())
@@ -468,7 +445,7 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 				}
 			}
 
-			_, err = tx.Exec("INSERT INTO product_changes (product_id, user_id, category_id, name, recorded_at) VALUES (?, ?, ?, ?, datetime('now'))", productId, user.Id, categoryId, name)
+			_, err = tx.Exec("INSERT INTO product_changes (product_id, user_id, category_id, name_singular, name_plural, recorded_at) VALUES (?, ?, ?, ?, ?, datetime('now'))", productId, user.Id, categoryId, nameSingular, namePlural)
 			if err != nil {
 				log.Println(err.Error())
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -495,47 +472,11 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 			}
 
 			http.Redirect(w, r, fmt.Sprintf("/add-item?product-id=%d", productId), http.StatusSeeOther)
+		} else {
+			renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
 		}
 	} else {
-		name := r.Form.Get("name")
-
-		files := []string{
-			"screens/add_product.html",
-			"layouts/internal.html",
-		}
-
-		data := struct{
-			CurrentUser types.User
-			Categories []CategoryOption
-			Name string
-			CategoryId string
-			IdempotencyKey string
-			FormErrors map[string]string
-			DimensionOptions []FormOption
-			DimensionIds map[string]bool
-		} {
-			CurrentUser: user,
-			Categories: categoryOptions,
-			Name: name,
-			CategoryId: "",
-			DimensionOptions: dimensionOptions,
-			IdempotencyKey: IdempotencyKey(),
-			DimensionIds: map[string]bool{},
-		}
-
-		ts, err := template.ParseFS(web.Templates, files...)
-		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		err = ts.Execute(w, data)
-		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
+		renderForm(r.Form.Get("name"), r.Form.Get("name"), "", make(map[string]bool), IdempotencyKey(), make(map[string]string))
 	}
 }
 
@@ -574,7 +515,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 		unitSet[strconv.Itoa(unit.Id)] = true
 		unitOptions = append(unitOptions, FormOption{
 			Id: strconv.Itoa(unit.Id),
-			Name: unit.PluralName,
+			Name: unit.NamePlural,
 		})
 	}
 

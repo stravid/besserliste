@@ -3,7 +3,6 @@ package queries
 import (
 	"database/sql"
 	"encoding/json"
-	"strings"
 
 	"stravid.com/besserliste/types"
 )
@@ -36,7 +35,15 @@ func Build(db *sql.DB) Queries {
 		panic(err.Error())
 	}
 
-	getProducts, err := db.Prepare(`SELECT id, name FROM products ORDER BY name ASC LIMIT 1000`)
+	getProducts, err := db.Prepare(`
+		SELECT
+			id,
+			name_singular,
+			name_plural
+		FROM products
+		ORDER BY name_plural ASC
+		LIMIT 1000
+	`)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -52,8 +59,8 @@ func Build(db *sql.DB) Queries {
 				name,
 				json_object(
 					'id', units.id,
-					'singular_name', units.singular_name,
-					'plural_name', units.plural_name,
+					'name_singular', units.name_singular,
+					'name_plural', units.name_plural,
 					'is_base_unit', CASE units.is_base_unit WHEN 1 THEN json('true') ELSE json('false') END,
 					'conversion_to_base', units.conversion_to_base,
 					'conversion_from_base', units.conversion_from_base
@@ -93,13 +100,13 @@ func Build(db *sql.DB) Queries {
 				FROM (
 					SELECT
 						products.id AS product_id,
-						products.name AS product_name,
+						products.name_plural AS product_name,
 						dimensions.id AS dimension_id,
 						dimensions.name AS dimension_name,
 						json_object(
 							'id', units.id,
-							'singular_name', units.singular_name,
-							'plural_name', units.plural_name,
+							'name_singular', units.name_singular,
+							'name_plural', units.name_plural,
 							'is_base_unit', CASE units.is_base_unit WHEN 1 THEN json('true') ELSE json('false') END,
 							'conversion_to_base', units.conversion_to_base,
 							'conversion_from_base', units.conversion_from_base
@@ -123,7 +130,8 @@ func Build(db *sql.DB) Queries {
 	getAddedItemByProductDimension, err := db.Prepare(`
 		SELECT
 			item_id AS id,
-			product_name AS name,
+			product_name_singular AS name_singular,
+			product_name_plural AS name_plural,
 			item_quantity AS quantity,
 			product_id,
 			json_object(
@@ -136,7 +144,8 @@ func Build(db *sql.DB) Queries {
 				item_id,
 				item_quantity,
 				product_id,
-				product_name,
+				product_name_singular,
+				product_name_plural,
 				dimension_id,
 				dimension_name,
 				json_group_array(json(unit)) AS units
@@ -145,13 +154,14 @@ func Build(db *sql.DB) Queries {
 					items.id AS item_id,
 					items.quantity AS item_quantity,
 					products.id AS product_id,
-					products.name AS product_name,
+					products.name_singular AS product_name_singular,
+					products.name_plural AS product_name_plural,
 					dimensions.id AS dimension_id,
 					dimensions.name AS dimension_name,
 					json_object(
 						'id', units.id,
-						'singular_name', units.singular_name,
-						'plural_name', units.plural_name,
+						'name_singular', units.name_singular,
+						'name_plural', units.name_plural,
 						'is_base_unit', CASE units.is_base_unit WHEN 1 THEN json('true') ELSE json('false') END,
 						'conversion_to_base', units.conversion_to_base,
 						'conversion_from_base', units.conversion_from_base
@@ -163,7 +173,7 @@ func Build(db *sql.DB) Queries {
 				WHERE items.product_id = ? AND items.dimension_id = ? AND items.state = 'added'
 				ORDER BY dimensions.ordering, units.ordering ASC
 			)
-			GROUP BY item_id, item_quantity, product_id, product_name, dimension_id, dimension_name
+			GROUP BY item_id, item_quantity, product_id, product_name_singular, product_name_plural, dimension_id, dimension_name
 		);
 	`)
 	if err != nil {
@@ -173,14 +183,16 @@ func Build(db *sql.DB) Queries {
 	getAddedItems, err := db.Prepare(`
 		SELECT
 			id,
-			name,
+			name_singular,
+			name_plural,
 			quantity,
 			product_id,
 			dimension
 		FROM (
 			SELECT
 				item_id AS id,
-				product_name AS name,
+				product_name_singular AS name_singular,
+				product_name_plural AS name_plural,
 				item_quantity AS quantity,
 				product_id,
 				last_change_at,
@@ -194,7 +206,8 @@ func Build(db *sql.DB) Queries {
 					item_id,
 					item_quantity,
 					product_id,
-					product_name,
+					product_name_singular,
+					product_name_plural,
 					dimension_id,
 					dimension_name,
 					MAX(last_change_at) AS last_change_at,
@@ -204,14 +217,15 @@ func Build(db *sql.DB) Queries {
 						items.id AS item_id,
 						items.quantity AS item_quantity,
 						products.id AS product_id,
-						products.name AS product_name,
+						products.name_singular AS product_name_singular,
+						products.name_plural AS product_name_plural,
 						dimensions.id AS dimension_id,
 						dimensions.name AS dimension_name,
 						item_changes.recorded_at AS last_change_at,
 						json_object(
 							'id', units.id,
-							'singular_name', units.singular_name,
-							'plural_name', units.plural_name,
+							'name_singular', units.name_singular,
+							'name_plural', units.name_plural,
 							'is_base_unit', CASE units.is_base_unit WHEN 1 THEN json('true') ELSE json('false') END,
 							'conversion_to_base', units.conversion_to_base,
 							'conversion_from_base', units.conversion_from_base
@@ -224,7 +238,7 @@ func Build(db *sql.DB) Queries {
 					WHERE items.state = 'added'
 					ORDER BY dimensions.ordering, units.ordering ASC
 				)
-				GROUP BY item_id, item_quantity, product_id, product_name, dimension_id, dimension_name
+				GROUP BY item_id, item_quantity, product_id, product_name_singular, product_name_plural, dimension_id, dimension_name
 			)
 		)
 		ORDER BY last_change_at DESC
@@ -315,13 +329,12 @@ func (stmt *Queries) GetProducts() ([]types.Product, error) {
 
 	products := []types.Product{}
 	for rows.Next() {
-		product := types.Product{}
-		err = rows.Scan(&product.Id, &product.Name)
+		p := types.Product{}
+		err = rows.Scan(&p.Id, &p.NameSingular, &p.NamePlural)
 		if err != nil {
 			return nil, err
 		}
-		product.SearchName = strings.ToLower(product.Name)
-		products = append(products, product)
+		products = append(products, p)
 	}
 
 	if err = rows.Err(); err != nil {
@@ -382,19 +395,19 @@ func (stmt *Queries) GetProduct(id int) (*types.SelectedProduct, error) {
 
 func (stmt *Queries) GetAddedItemByProductDimension(productId int, dimensionId int) (*types.AddedItem, error) {
 	row := stmt.getAddedItemByProductDimension.QueryRow(productId, dimensionId)
-	item := types.AddedItem{}
+	i := types.AddedItem{}
 	var dimensionJson string
-	err := row.Scan(&item.Id, &item.Name, &item.Quantity, &item.ProductId, &dimensionJson)
+	err := row.Scan(&i.Id, &i.NameSingular, &i.NamePlural, &i.Quantity, &i.ProductId, &dimensionJson)
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal([]byte(dimensionJson), &item.Dimension)
+	err = json.Unmarshal([]byte(dimensionJson), &i.Dimension)
 	if err != nil {
 		return nil, err
 	}
 
-	return &item, nil
+	return &i, nil
 }
 
 func (stmt *Queries) GetAddedItems() ([]types.AddedItem, error) {
@@ -406,20 +419,20 @@ func (stmt *Queries) GetAddedItems() ([]types.AddedItem, error) {
 
 	items := []types.AddedItem{}
 	for rows.Next() {
-		item := types.AddedItem{}
+		i := types.AddedItem{}
 		var dimensionJson string
 
-		err := rows.Scan(&item.Id, &item.Name, &item.Quantity, &item.ProductId, &dimensionJson)
+		err := rows.Scan(&i.Id, &i.NameSingular, &i.NamePlural, &i.Quantity, &i.ProductId, &dimensionJson)
 		if err != nil {
 			return nil, err
 		}
 
-		err = json.Unmarshal([]byte(dimensionJson), &item.Dimension)
+		err = json.Unmarshal([]byte(dimensionJson), &i.Dimension)
 		if err != nil {
 			return nil, err
 		}
 
-		items = append(items, item)
+		items = append(items, i)
 	}
 
 	if err = rows.Err(); err != nil {

@@ -9,7 +9,7 @@
 
 <p class="suggestions">
   {{range .Products}}
-  <a href="/add-item?product-id={{.Id}}" data-name="{{.SearchName}}">{{.Name}}</a>
+  <a href="/add-item?product-id={{.Id}}" data-name="{{.SearchTerm}}">{{.NamePlural}}</a>
   {{end}}
 </p>
 
@@ -17,7 +17,7 @@
 
 <ol>
   {{range .AddedItems}}
-  <li>{{.FormattedQuantity}} {{.Name}}</li>
+  <li>{{.FormattedQuantity}} {{.FormattedName}}</li>
   {{end}}
 </ol>
 </form>

@@ -8,8 +8,8 @@ func TestFormattedQuantity(t *testing.T) {
     dimensionlessUnits := []Unit{
         {
             Id: 1,
-            SingularName: "Flasche",
-            PluralName: "Flaschen",
+            NameSingular: "Flasche",
+            NamePlural: "Flaschen",
             IsBaseUnit: true,
             ConversionToBase: 1,
             ConversionFromBase: 1,
@@ -19,16 +19,16 @@ func TestFormattedQuantity(t *testing.T) {
     volumeUnits := []Unit{
         {
             Id: 2,
-            SingularName: "ml",
-            PluralName: "ml",
+            NameSingular: "ml",
+            NamePlural: "ml",
             IsBaseUnit: true,
             ConversionToBase: 1,
             ConversionFromBase: 1,
         },
         {
             Id: 3,
-            SingularName: "l",
-            PluralName: "l",
+            NameSingular: "l",
+            NamePlural: "l",
             IsBaseUnit: false,
             ConversionToBase: 1000,
             ConversionFromBase: 0.001,

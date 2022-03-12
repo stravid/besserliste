@@ -15,8 +15,8 @@ ordering
 [units]
 id
 dimension_id
-singular_name
-plural_name
+name_singular
+name_plural
 is_base_unit
 conversion_to_base
 conversion_from_base
@@ -25,7 +25,8 @@ ordering
 [products]
 id
 category_id
-name
+name_singular
+name_plural
 
 [items]
 id
@@ -47,7 +48,8 @@ id
 user_id
 product_id
 category_id
-name
+name_singular
+name_plural
 recorded_at
 
 [idempotency_keys]

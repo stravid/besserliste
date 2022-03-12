@@ -19,9 +19,8 @@ type Category struct {
 
 type Product struct {
 	Id int
-	Name string
-	SearchName string
-	Dimension string
+	NameSingular string
+	NamePlural string
 }
 
 type Dimension struct {
@@ -32,8 +31,8 @@ type Dimension struct {
 
 type Unit struct {
 	Id int `json:"id"`
-	SingularName string `json:"singular_name"`
-	PluralName string `json:"plural_name"`
+	NameSingular string `json:"name_singular"`
+	NamePlural string `json:"name_plural"`
 	IsBaseUnit bool `json:"is_base_unit"`
 	ConversionToBase float64 `json:"conversion_to_base"`
 	ConversionFromBase float64 `json:"conversion_from_base"`
@@ -42,15 +41,16 @@ type Unit struct {
 type SelectedProduct struct {
 	Id int `json:"id"`
 	Name string `json:"name"`
-	Dimensions []Dimension `json: "dimensions"`
+	Dimensions []Dimension `json:"dimensions"`
 }
 
 type AddedItem struct {
 	Id int `json:"id"`
-	Name string `json:"name"`
+	NameSingular string `json:"name_singular"`
+	NamePlural string `json:"name_plural"`
 	Quantity int
 	ProductId int
-	Dimension Dimension `json: "dimension"`
+	Dimension Dimension `json:"dimension"`
 }
 
 func UserIdFromString(input string) (*int, error) {
@@ -90,8 +90,24 @@ func FormattedQuantity(quantity int, units []Unit) (string) {
 	formattedQuantity := strings.Replace(strconv.FormatFloat(bestFittingUnit.ConversionFromBase * floatQuantity, 'f', -1, 32), ".", ",", -1)
 
 	if bestFittingUnit.ConversionFromBase * floatQuantity > 1 {
-		return fmt.Sprintf("%s %s", formattedQuantity, bestFittingUnit.PluralName)
+		return fmt.Sprintf("%s %s", formattedQuantity, bestFittingUnit.NamePlural)
 	} else {
-		return fmt.Sprintf("%s %s", formattedQuantity, bestFittingUnit.SingularName)
+		return fmt.Sprintf("%s %s", formattedQuantity, bestFittingUnit.NameSingular)
+	}
+}
+
+func (i *AddedItem) FormattedName() (string) {
+	if i.Quantity == 1 {
+		return i.NameSingular
+	} else {
+		return i.NamePlural
+	}
+}
+
+func (p *Product) SearchTerm() (string) {
+	if p.NameSingular != p.NamePlural {
+		return strings.ToLower(fmt.Sprintf("%s %s", p.NameSingular, p.NamePlural))
+	} else {
+		return strings.ToLower(p.NamePlural)
 	}
 }

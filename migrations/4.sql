@@ -7,8 +7,8 @@ CREATE TABLE dimensions (
 CREATE TABLE units (
   id INTEGER PRIMARY KEY,
   dimension_id INTEGER NOT NULL,
-  singular_name TEXT NOT NULL UNIQUE CHECK(length(singular_name) <= 20),
-  plural_name TEXT NOT NULL UNIQUE CHECK(length(plural_name) <= 20),
+  name_singular TEXT NOT NULL UNIQUE CHECK(length(name_singular) <= 20),
+  name_plural TEXT NOT NULL UNIQUE CHECK(length(name_plural) <= 20),
   is_base_unit BOOLEAN NOT NULL,
   conversion_to_base DECIMAL NOT NULL CHECK(conversion_to_base > 0),
   conversion_from_base DECIMAL NOT NULL CHECK(conversion_from_base > 0),
@@ -22,7 +22,8 @@ CREATE UNIQUE INDEX idx_ordering_units ON units(ordering, dimension_id);
 CREATE TABLE products (
   id INTEGER PRIMARY KEY,
   category_id INTEGER NOT NULL,
-  name TEXT NOT NULL UNIQUE CHECK(length(name) <= 40),
+  name_singular TEXT NOT NULL UNIQUE CHECK(length(name_singular) <= 40),
+  name_plural TEXT NOT NULL UNIQUE CHECK(length(name_plural) <= 40),
   FOREIGN KEY(category_id) REFERENCES categories(id)
 );
 
@@ -31,7 +32,8 @@ CREATE TABLE product_changes (
   product_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
   category_id INTEGER NOT NULL,
-  name TEXT NOT NULL,
+  name_singular TEXT NOT NULL,
+  name_plural TEXT NOT NULL,
   recorded_at DATETIME NOT NULL,
   FOREIGN KEY(user_id) REFERENCES users(id),
   FOREIGN KEY(product_id) REFERENCES products(id),
@@ -89,8 +91,8 @@ INSERT INTO dimensions (
 
 INSERT INTO units (
   dimension_id,
-  singular_name,
-  plural_name,
+  name_singular,
+  name_plural,
   is_base_unit,
   conversion_to_base,
   conversion_from_base,
