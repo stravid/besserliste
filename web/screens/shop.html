@@ -12,4 +12,13 @@
   <li>{{.FormattedQuantity}} {{.FormattedName}} <button form="check-form" name="item_id" value="{{.Id}}" type="submit">Abhaken</button></li>
   {{end}}
 </ol>
+
+{{if .GatheredItems}}
+<h2>Abgehakt</h2>
+<ol>
+  {{range .GatheredItems}}
+  <li>{{.FormattedQuantity}} {{.FormattedName}}</li>
+  {{end}}
+</ol>
+{{end}}
 {{end}}

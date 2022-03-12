@@ -708,6 +708,13 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	gatheredItems, err := env.queries.GetGatheredItems()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	files := []string{
 		"screens/shop.html",
 		"layouts/internal.html",
@@ -718,10 +725,12 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 		CurrentUser types.User
 		Products []types.Product
 		AddedItems []types.AddedItem
+		GatheredItems []types.AddedItem
 		IdempotencyKey string
 	} {
 		CurrentUser: user,
 		AddedItems: addedItems,
+		GatheredItems: gatheredItems,
 		IdempotencyKey: IdempotencyKey(),
 	}
 
