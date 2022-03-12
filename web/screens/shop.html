@@ -4,6 +4,7 @@
 
 {{define "main"}}
 <form id="check-form" action="/check-item" method="POST">
+  <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
 </form>
 
 <ol>
