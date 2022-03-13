@@ -3,7 +3,7 @@ INSERT INTO users (
   email
 ) VALUES
   ('Hannah', 'hannah@longhail.com'),
-  ('david', 'david@strauss.io')
+  ('David', 'david@strauss.io')
 ;
 
 INSERT INTO categories (
