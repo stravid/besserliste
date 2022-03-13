@@ -9,6 +9,7 @@ pkgs.mkShell {
     watchexec
     ruby
     graphviz
+    icu
   ];
 
   shellHook = ''

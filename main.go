@@ -106,6 +106,11 @@ func main() {
 	}
 	defer db.Close()
 
+	_, err = db.Exec("SELECT icu_load_collation('de_AT', 'de_AT');")
+	if err != nil {
+		log.Fatalln("Error loading collation: ", err.Error())
+	}
+
 	migrations.Run(db)
 
 	session := sessions.New([]byte(configuration.Secret))
@@ -456,11 +461,11 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 
 			result, err := tx.Exec("INSERT INTO products (category_id, name_singular, name_plural) VALUES (?, ?, ?)", categoryId, nameSingular, namePlural)
 			if err != nil {
-				if err.Error() == "UNIQUE constraint failed: products.name_singular" {
+				if err.Error() == "UNIQUE constraint failed: index 'idx_products_name_singular'" {
 					formErrors["name_singular"] = "Anderen Namen angeben (ist bereits in Verwendung)"
 					renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
 					return
-				} else if err.Error() == "UNIQUE constraint failed: products.name_plural" {
+				} else if err.Error() == "UNIQUE constraint failed: index 'idx_products_name_plural'" {
 					formErrors["name_plural"] = "Anderen Namen angeben (ist bereits in Verwendung)"
 					renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
 					return
