@@ -522,7 +522,19 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 			renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
 		}
 	} else {
-		renderForm(r.Form.Get("name"), r.Form.Get("name"), "", make(map[string]bool), IdempotencyKey(), make(map[string]string))
+		name := r.Form.Get("name")
+		product, err := env.queries.GetProductByName(name)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				renderForm(name, name, "", make(map[string]bool), IdempotencyKey(), make(map[string]string))
+			} else {
+				log.Println(err.Error())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			http.Redirect(w, r, fmt.Sprintf("/add-item?product-id=%d", product.Id), http.StatusSeeOther)
+		}
 	}
 }
 

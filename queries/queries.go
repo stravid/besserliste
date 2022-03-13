@@ -21,6 +21,7 @@ type Queries struct {
 	getItem sql.Stmt
 	getGatheredItems sql.Stmt
 	getRemovedItems sql.Stmt
+	getProductByName sql.Stmt
 }
 
 func Build(db *sql.DB) Queries {
@@ -507,6 +508,19 @@ func Build(db *sql.DB) Queries {
 		panic(err.Error())
 	}
 
+	getProductByName, err := db.Prepare(`
+		SELECT
+			id,
+			name_singular,
+			name_plural
+		FROM products
+		WHERE lower(name_singular, 'de_AT') = lower(?) OR lower(name_plural, 'de_AT') = lower(?)
+		LIMIT 1
+	`)
+	if err != nil {
+		panic(err.Error())
+	}
+
 	return Queries{
 		getUsers: *getUsers,
 		getUserById: *getUserById,
@@ -520,6 +534,7 @@ func Build(db *sql.DB) Queries {
 		getItem: *getItem,
 		getGatheredItems: *getGatheredItems,
 		getRemovedItems: *getRemovedItems,
+		getProductByName: *getProductByName,
 	}
 }
 
@@ -815,4 +830,15 @@ func (stmt *Queries) GetRemovedItems() ([]types.AddedItem, error) {
 	}
 
 	return items, nil
+}
+
+func (stmt *Queries) GetProductByName(name string) (*types.Product, error) {
+	row := stmt.getProductByName.QueryRow(name, name)
+	p := types.Product{}
+	err := row.Scan(&p.Id, &p.NameSingular, &p.NamePlural)
+	if err != nil {
+		return nil, err
+	}
+
+	return &p, nil
 }
