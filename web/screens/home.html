@@ -1,0 +1,25 @@
+{{template "internal" .}}
+
+{{define "title"}}Home{{end}}
+
+{{define "navigation"}}
+<a href="/home" class="active">Home</a>
+<a href="/plan">Aufschreiben</a>
+<a href="/shop">Einkaufen</a>
+{{end}}
+
+{{define "main"}}
+<div class="l-stack-s3">
+  <h1>Willkommen auf der Besserliste</h1>
+
+  <p>Unter <a href="/plan">Aufschreiben</a> kannst du deinen Einkauf planen und die Einkaufsliste erstellen. Wenn du im Geschäft stehst, hakst du unter <a href="/shop">Einkaufen</a> ab, was du in den Einkaufswagen legst.</p>
+
+  <div class="l-stack-s0">
+    <p>Du bist als <strong>{{.CurrentUser.Name}}</strong> angemeldet.</p>
+
+    <form action="/logout" method="POST">
+      <button type="submit">Abmelden</button>
+    </form>
+  </div>
+</div>
+{{end}}

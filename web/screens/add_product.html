@@ -1,105 +1,97 @@
 {{template "internal" .}}
 
-{{define "title"}}Add Product{{end}}
+{{define "title"}}Neues Produkt{{end}}
 
-{{define "main"}}
-
-{{with .FormErrors}}
-<div>
-  <h2>Es gibt ein Problem</h2>
-  <ul>
-    {{range $id, $error := .}}
-    <li><a href="#{{$id}}">{{$error}}</a></li>
-    {{end}}
-  </ul>
-</div>
+{{define "navigation"}}
+<a href="/home">Home</a>
+<a href="/plan" class="active">Aufschreiben</a>
+<a href="/shop">Einkaufen</a>
 {{end}}
 
-<h2>Neues Produkt auf Einkaufsliste setzen</h2>
-
-<form method="POST">
-  <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
-  <div>
-    <label for="name_singular">
-      <span>Name in Einzahl</span>
-      {{with .FormErrors.name_singular}}
-      <span>
-        <svg viewBox="0 0 100 100" width="0.75em" height="0.75em" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
-          <path d="M 100 50 C 100 77.614 77.614 100 50 100 C 22.386 100 0 77.614 0 50 C 0 22.386 22.386 0 50 0 C 77.614 0 100 22.386 100 50 Z M 50 72 C 44.477 72 40 76.477 40 82 C 40 87.523 44.477 92 50 92 C 55.523 92 60 87.523 60 82 C 60 76.477 55.523 72 50 72 Z M 50 9 C 43.096 9 37.5 21.536 37.5 37 C 37.5 52.464 43.096 65 50 65 C 56.904 65 62.5 52.464 62.5 37 C 62.5 21.536 56.904 9 50 9 Z"></path>
-        </svg>
-        {{.}}
-      </span>
+{{define "main"}}
+<div class="l-stack-s3">
+  {{with .FormErrors}}
+  <div class="error-list">
+    <h2>Es gibt ein Problem</h2>
+    <ul>
+      {{range $id, $error := .}}
+      <li><a href="#{{$id}}">{{$error}}</a></li>
       {{end}}
-    </label>
-    <input id="name_singular" type="text" name="name_singular" value="{{.NameSingular}}" autofocus>
+    </ul>
+  </div>
+  {{end}}
+
+  <div class="l-stack-s0">
+    <a href="/plan">Zurück</a>
+    <h2>Neues Produkt hinzufügen</h2>
   </div>
 
-  <div>
-    <label for="name_singular">
-      <span>Name in Mehrzahl</span>
-      {{with .FormErrors.name_plural}}
-      <span>
-        <svg viewBox="0 0 100 100" width="0.75em" height="0.75em" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
-          <path d="M 100 50 C 100 77.614 77.614 100 50 100 C 22.386 100 0 77.614 0 50 C 0 22.386 22.386 0 50 0 C 77.614 0 100 22.386 100 50 Z M 50 72 C 44.477 72 40 76.477 40 82 C 40 87.523 44.477 92 50 92 C 55.523 92 60 87.523 60 82 C 60 76.477 55.523 72 50 72 Z M 50 9 C 43.096 9 37.5 21.536 37.5 37 C 37.5 52.464 43.096 65 50 65 C 56.904 65 62.5 52.464 62.5 37 C 62.5 21.536 56.904 9 50 9 Z"></path>
-        </svg>
-        {{.}}
-      </span>
-      {{end}}
-    </label>
-    <input id="name_plural" type="text" name="name_plural" value="{{.NamePlural}}">
-  </div>
+  <form method="POST" autocomplete="off">
+    <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
 
-  <fieldset>
-    <legend>
-      <span>Kategorie</span>
-      {{with .FormErrors.category_id}}
-      <span>
-        <svg viewBox="0 0 100 100" width="0.75em" height="0.75em" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
-          <path d="M 100 50 C 100 77.614 77.614 100 50 100 C 22.386 100 0 77.614 0 50 C 0 22.386 22.386 0 50 0 C 77.614 0 100 22.386 100 50 Z M 50 72 C 44.477 72 40 76.477 40 82 C 40 87.523 44.477 92 50 92 C 55.523 92 60 87.523 60 82 C 60 76.477 55.523 72 50 72 Z M 50 9 C 43.096 9 37.5 21.536 37.5 37 C 37.5 52.464 43.096 65 50 65 C 56.904 65 62.5 52.464 62.5 37 C 62.5 21.536 56.904 9 50 9 Z"></path>
-        </svg>
-        {{.}}
-      </span>
-      {{end}}
-    </legend>
-    <div>
-      {{range .Categories}}
-      <div>
-        <label for="category_id-{{.Id}}">
-          <input type="radio" id="category_id-{{.Id}}" name="category_id" value="{{.Id}}" {{if eq $.CategoryId .Id}}checked{{end}}>
-          {{.Name}}
+    <div class="l-stack-s1">
+      <div class="field">
+        <label for="name_singular">
+          <span class="field-label">Name in Einzahl</span>
+          {{with .FormErrors.name_singular}}
+          <span class="field-error">{{.}}</span>
+          {{end}}
         </label>
+        <input id="name_singular" type="text" name="name_singular" value="{{.NameSingular}}" autofocus>
       </div>
-      {{end}}
-    </div>
-  </fieldset>
 
-  <fieldset>
-    <legend>
-      <span>Größenordnungen</span>
-      {{with .FormErrors.dimension_id}}
-      <span>
-        <svg viewBox="0 0 100 100" width="0.75em" height="0.75em" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
-          <path d="M 100 50 C 100 77.614 77.614 100 50 100 C 22.386 100 0 77.614 0 50 C 0 22.386 22.386 0 50 0 C 77.614 0 100 22.386 100 50 Z M 50 72 C 44.477 72 40 76.477 40 82 C 40 87.523 44.477 92 50 92 C 55.523 92 60 87.523 60 82 C 60 76.477 55.523 72 50 72 Z M 50 9 C 43.096 9 37.5 21.536 37.5 37 C 37.5 52.464 43.096 65 50 65 C 56.904 65 62.5 52.464 62.5 37 C 62.5 21.536 56.904 9 50 9 Z"></path>
-        </svg>
-        {{.}}
-      </span>
-      {{end}}
-    </legend>
-    <div>
-      {{range .DimensionOptions}}
-      <div>
-        <label for="dimension-{{.Id}}">
-          <input type="checkbox" id="dimension-{{.Id}}" name="dimension_ids" value="{{.Id}}"{{if (index $.DimensionIds .Id) }}checked{{end}}>
-          {{.Name}}
+      <div class="field">
+        <label for="name_plural">
+          <span class="field-label">Name in Mehrzahl</span>
+          {{with .FormErrors.name_plural}}
+          <span class="field-error">{{.}}</span>
+          {{end}}
         </label>
+        <input id="name_plural" type="text" name="name_plural" value="{{.NamePlural}}">
       </div>
-      {{end}}
-    </div>
-  </fieldset>
 
-  <div>
-    <a href="/plan">Abbrechen</a>
-    <button type="submit">Produkt anlegen</button>
-  </div>
-</form>
+      <fieldset class="field">
+        <legend>
+          <span class="field-label">Kategorie</span>
+          {{with .FormErrors.category_id}}
+          <span class="field-error">{{.}}</span>
+          {{end}}
+        </legend>
+        <div class="field-options">
+          {{range .Categories}}
+          <div class="field-radio">
+            <label for="category_id-{{.Id}}">
+              <input type="radio" id="category_id-{{.Id}}" name="category_id" value="{{.Id}}" {{if eq $.CategoryId .Id}}checked{{end}}>
+              {{.Name}}
+            </label>
+          </div>
+          {{end}}
+        </div>
+      </fieldset>
+
+      <fieldset class="field">
+        <legend>
+          <span class="field-label">Größenordnungen</span>
+          {{with .FormErrors.dimension_ids}}
+          <span class="field-error">{{.}}</span>
+          {{end}}
+        </legend>
+        <div class="field-options">
+          {{range .DimensionOptions}}
+          <div class="field-checkbox">
+            <label for="dimension-{{.Id}}">
+              <input type="checkbox" id="dimension-{{.Id}}" name="dimension_ids" value="{{.Id}}"{{if (index $.DimensionIds .Id) }}checked{{end}}>
+              {{.Name}}
+            </label>
+          </div>
+          {{end}}
+        </div>
+      </fieldset>
+
+      <div>
+        <button type="submit">Produkt anlegen</button>
+      </div>
+    </div>
+  </form>
+</div>
 {{end}}

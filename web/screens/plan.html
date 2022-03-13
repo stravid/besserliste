@@ -1,39 +1,69 @@
 {{template "internal" .}}
 
-{{define "title"}}Plan{{end}}
+{{define "title"}}Aufschreiben{{end}}
+
+{{define "navigation"}}
+<a href="/home">Home</a>
+<a href="/plan" class="active">Aufschreiben</a>
+<a href="/shop">Einkaufen</a>
+{{end}}
 
 {{define "main"}}
 <form id="remove-form" action="/remove-item" method="POST">
   <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
 </form>
 
-<form action="/add-product" method="GET" autocomplete="off">
-  <input id="name" type="text" name="name" autofocus>
-  <button type="submit">Hinzufügen</button>
-</form>
+<div class="l-stack-s3">
+  <form action="/add-product" method="GET" autocomplete="off">
+    <div class="l-stack-s1">
+      <div class="field">
+        <label for="name">
+          <span class="field-label">Produkt</span>
+        </label>
+        <input id="name" type="text" name="name" autofocus>
+      </div>
 
-<p class="suggestions">
-  {{range .Products}}
-  <a href="/add-item?product-id={{.Id}}" data-name="{{.SearchTerm}}">{{.NamePlural}}</a>
+      <div class="suggestions">
+        {{range .Products}}
+        <a href="/add-item?product-id={{.Id}}" data-name="{{.SearchTerm}}">{{.NamePlural}}</a>
+        {{end}}
+      </div>
+
+      <div>
+        <button type="submit">Hinzufügen</button>
+      </div>
+    </div>
+  </form>
+
+  {{if .AddedItems}}
+  <ol>
+    {{range .AddedItems}}
+    <li>
+      <span class="name">{{.FormattedName}}</span>
+      <span class="quantity">{{.FormattedQuantity}}</span>
+      <button class="action" form="remove-form" name="item_id" value="{{.Id}}" type="submit">Entfernen</button>
+    </li>
+    {{end}}
+  </ol>
+  {{else}}
+  <p>Aktuell steht nichts auf der Einkaufsliste.</p>
   {{end}}
-</p>
 
-<hr>
-
-<ol>
-  {{range .AddedItems}}
-  <li>{{.FormattedQuantity}} {{.FormattedName}} <button form="remove-form" name="item_id" value="{{.Id}}" type="submit">Entfernen</button></li>
+  {{if .RemovedItems}}
+  <p>
+    <strong>Entfernte Produkte</strong><br>
+    Die 20 zuletzt entfernten Produkte in den letzten 6 Stunden.
+  </p>
+  <ol>
+    {{range .RemovedItems}}
+    <li>
+      <span class="name">{{.FormattedName}}</span>
+      <span class="quantity">{{.FormattedQuantity}}</span>
+    </li>
+    {{end}}
+  </ol>
   {{end}}
-</ol>
-
-{{if .RemovedItems}}
-<h2>Entfernt</h2>
-<ol>
-  {{range .RemovedItems}}
-  <li>{{.FormattedQuantity}} {{.FormattedName}}</li>
-  {{end}}
-</ol>
-{{end}}
+</div>
 
 <script type="text/javascript">
   document.querySelector('#name').addEventListener('input', function() {
@@ -47,6 +77,12 @@
 
     for (var i = 0; i < visible.length; i++) {
       visible[i].style.display = 'inline-block';
+    }
+
+    if (visible.length > 0) {
+      document.querySelector('.suggestions').style.display = 'flex';
+    } else {
+      document.querySelector('.suggestions').style.display = 'none';
     }
   })
 </script>

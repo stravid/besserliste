@@ -138,6 +138,7 @@ func main() {
 	mux.Handle("/shop", internalHandler(env.ShopRoute))
 	mux.Handle("/check-item", internalHandler(env.CheckItemRoute))
 	mux.Handle("/remove-item", internalHandler(env.RemoveItemRoute))
+	mux.Handle("/home", internalHandler(env.HomeRoute))
 
 	err = http.ListenAndServe(":4000", mux)
 	if err != nil {
@@ -209,6 +210,34 @@ func (env *Environment) LoginRoute(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+	}
+}
+
+func (env *Environment) HomeRoute(w http.ResponseWriter, r *http.Request) {
+	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
+	data := struct{
+		CurrentUser types.User
+	} {
+		CurrentUser: user,
+	}
+
+	files := []string{
+		"screens/home.html",
+		"layouts/internal.html",
+	}
+
+	ts, err := template.ParseFS(web.Templates, files...)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	err = ts.Execute(w, data)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 }
 

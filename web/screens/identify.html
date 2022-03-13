@@ -1,23 +1,25 @@
 {{template "external" .}}
 
-{{define "title"}}Benutzer{{end}}
+{{define "title"}}Anmeldung{{end}}
 
 {{define "main"}}
-<h1>Wer bist du?</h1>
+<div class="l-stack-s3">
+  <h1>Anmeldung</h1>
 
-<p>
-  Bitte Benutzer*in wählen und anmelden.
-</p>
+  <p>
+    Zum fortfahren Benutzer*in auswählen.
+  </p>
 
-<ul>
-  {{range .}}
-  <li>
-    {{.Name}}
-    <form method="POST">
-      <input type="hidden" name="user_id" value="{{.Id}}" >
-      <button type="submit">Anmelden</button>
-    </form>
-  </li>
-  {{end}}
-</ul>
+  <ol>
+    {{range .}}
+    <li>
+      <span class="name">{{.Name}}</span>
+      <form class="action" method="POST">
+        <input type="hidden" name="user_id" value="{{.Id}}" >
+        <button type="submit">Anmelden</button>
+      </form>
+    </li>
+    {{end}}
+  </ol>
+</div>
 {{end}}

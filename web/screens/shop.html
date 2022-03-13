@@ -1,24 +1,46 @@
 {{template "internal" .}}
 
-{{define "title"}}Shop{{end}}
+{{define "title"}}Einkaufen{{end}}
+
+{{define "navigation"}}
+<a href="/home">Home</a>
+<a href="/plan">Aufschreiben</a>
+<a href="/shop" class="active">Einkaufen</a>
+{{end}}
 
 {{define "main"}}
 <form id="check-form" action="/check-item" method="POST">
   <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
 </form>
 
-<ol>
-  {{range .AddedItems}}
-  <li>{{.FormattedQuantity}} {{.FormattedName}} <button form="check-form" name="item_id" value="{{.Id}}" type="submit">Abhaken</button></li>
+<div class="l-stack-s3">
+  {{if .AddedItems}}
+  <ol>
+    {{range .AddedItems}}
+    <li>
+      <span class="name">{{.FormattedName}}</span>
+      <span class="quantity">{{.FormattedQuantity}}</span>
+      <button class="action" form="check-form" name="item_id" value="{{.Id}}" type="submit">Abhaken</button>
+    </li>
+    {{end}}
+  </ol>
+  {{else}}
+  <p>Aktuell steht nichts auf der Einkaufsliste.</p>
   {{end}}
-</ol>
 
-{{if .GatheredItems}}
-<h2>Abgehakt</h2>
-<ol>
-  {{range .GatheredItems}}
-  <li>{{.FormattedQuantity}} {{.FormattedName}}</li>
+  {{if .GatheredItems}}
+  <p>
+    <strong>Abgehakte Produkte</strong><br>
+    Die 100 zuletzt abgehakten Produkte in den letzten 6 Stunden.
+  </p>
+  <ol>
+    {{range .GatheredItems}}
+    <li>
+      <span class="name">{{.FormattedName}}</span>
+      <span class="quantity">{{.FormattedQuantity}}</span>
+    </li>
+    {{end}}
+  </ol>
   {{end}}
-</ol>
-{{end}}
+</div>
 {{end}}
