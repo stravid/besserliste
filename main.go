@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,8 +16,6 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
-	"crypto/rand"
-	"encoding/base64"
 
 	"github.com/golangcollege/sessions"
 	_ "github.com/mattn/go-sqlite3"
@@ -26,11 +26,12 @@ import (
 )
 
 type FormOption struct {
-	Id string
+	Id   string
 	Name string
 }
 
 type contextKey string
+
 const contextKeyCurrentUser = contextKey("currentUser")
 
 func (env *Environment) authenticate(next http.Handler) http.Handler {
@@ -82,12 +83,12 @@ func (env *Environment) isAuthenticated(r *http.Request) bool {
 type Environment struct {
 	queries queries.Queries
 	session *sessions.Session
-	db *sql.DB
+	db      *sql.DB
 }
 
 type Configuration struct {
-	Database          string
-	Secret          string
+	Database string
+	Secret   string
 }
 
 func main() {
@@ -119,7 +120,7 @@ func main() {
 	env := &Environment{
 		queries: queries.Build(db),
 		session: session,
-		db: db,
+		db:      db,
 	}
 
 	fileServer := http.FileServer(http.FS(web.Static))
@@ -144,6 +145,7 @@ func main() {
 	mux.Handle("/check-item", internalHandler(env.CheckItemRoute))
 	mux.Handle("/remove-item", internalHandler(env.RemoveItemRoute))
 	mux.Handle("/home", internalHandler(env.HomeRoute))
+	mux.Handle("/undo", internalHandler(env.UndoRoute))
 
 	err = http.ListenAndServe(":4000", mux)
 	if err != nil {
@@ -220,9 +222,9 @@ func (env *Environment) LoginRoute(w http.ResponseWriter, r *http.Request) {
 
 func (env *Environment) HomeRoute(w http.ResponseWriter, r *http.Request) {
 	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
-	data := struct{
+	data := struct {
 		CurrentUser types.User
-	} {
+	}{
 		CurrentUser: user,
 	}
 
@@ -289,17 +291,17 @@ func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
-	data := struct{
-		CurrentUser types.User
-		Products []types.Product
-		AddedItems []types.AddedItem
-		RemovedItems []types.AddedItem
+	data := struct {
+		CurrentUser    types.User
+		Products       []types.Product
+		AddedItems     []types.AddedItem
+		RemovedItems   []types.AddedItem
 		IdempotencyKey string
-	} {
-		CurrentUser: user,
-		Products: products,
-		AddedItems: addedItems,
-		RemovedItems: removedItems,
+	}{
+		CurrentUser:    user,
+		Products:       products,
+		AddedItems:     addedItems,
+		RemovedItems:   removedItems,
 		IdempotencyKey: IdempotencyKey(),
 	}
 
@@ -341,7 +343,7 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 	}
 
 	type CategoryOption struct {
-		Id string
+		Id   string
 		Name string
 	}
 
@@ -360,7 +362,7 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 	for _, dimension := range dimensions {
 		dimensionSet[strconv.Itoa(dimension.Id)] = true
 		dimensionOptions = append(dimensionOptions, FormOption{
-			Id: strconv.Itoa(dimension.Id),
+			Id:   strconv.Itoa(dimension.Id),
 			Name: dimension.Name,
 		})
 	}
@@ -368,27 +370,27 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
 
 	renderForm := func(nameSingular string, namePlural string, categoryId string, dimensionIds map[string]bool, idempotencyKey string, formErrors map[string]string) {
-		data := struct{
-				CurrentUser types.User
-				Categories []CategoryOption
-				DimensionOptions []FormOption
-				NameSingular string
-				NamePlural string
-				CategoryId string
-				DimensionIds map[string]bool
-				IdempotencyKey string
-				FormErrors map[string]string
-			} {
-				CurrentUser: user,
-				Categories: categoryOptions,
-				NameSingular: nameSingular,
-				NamePlural: namePlural,
-				CategoryId: categoryId,
-				IdempotencyKey: idempotencyKey,
-				FormErrors: formErrors,
-				DimensionOptions: dimensionOptions,
-				DimensionIds: dimensionIds,
-			}
+		data := struct {
+			CurrentUser      types.User
+			Categories       []CategoryOption
+			DimensionOptions []FormOption
+			NameSingular     string
+			NamePlural       string
+			CategoryId       string
+			DimensionIds     map[string]bool
+			IdempotencyKey   string
+			FormErrors       map[string]string
+		}{
+			CurrentUser:      user,
+			Categories:       categoryOptions,
+			NameSingular:     nameSingular,
+			NamePlural:       namePlural,
+			CategoryId:       categoryId,
+			IdempotencyKey:   idempotencyKey,
+			FormErrors:       formErrors,
+			DimensionOptions: dimensionOptions,
+			DimensionIds:     dimensionIds,
+		}
 
 		files := []string{
 			"screens/add_product.html",
@@ -500,7 +502,7 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 
 			_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
 			if err != nil {
-				if (err.Error() == "UNIQUE constraint failed: idempotency_keys.key") {
+				if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
 					http.Redirect(w, r, "/plan", http.StatusSeeOther)
 					return
 				} else {
@@ -572,7 +574,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 	for _, unit := range units {
 		unitSet[strconv.Itoa(unit.Id)] = true
 		unitOptions = append(unitOptions, FormOption{
-			Id: strconv.Itoa(unit.Id),
+			Id:   strconv.Itoa(unit.Id),
 			Name: unit.NamePlural,
 		})
 	}
@@ -585,22 +587,22 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 			"layouts/internal.html",
 		}
 
-		data := struct{
-			CurrentUser types.User
-			Product types.SelectedProduct
-			UnitOptions []FormOption
+		data := struct {
+			CurrentUser    types.User
+			Product        types.SelectedProduct
+			UnitOptions    []FormOption
 			IdempotencyKey string
-			FormErrors map[string]string
-			Quantity string
-			UnitId string
-		} {
-			CurrentUser: user,
-			Product: *product,
-			UnitOptions: unitOptions,
-			Quantity: quantity,
-			UnitId: unitId,
+			FormErrors     map[string]string
+			Quantity       string
+			UnitId         string
+		}{
+			CurrentUser:    user,
+			Product:        *product,
+			UnitOptions:    unitOptions,
+			Quantity:       quantity,
+			UnitId:         unitId,
 			IdempotencyKey: idempotencyKey,
-			FormErrors: formErrors,
+			FormErrors:     formErrors,
 		}
 
 		ts, err := template.ParseFS(web.Templates, files...)
@@ -682,7 +684,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if baseQuantity > remainingQuanity {
-				formErrors["amount"] = fmt.Sprintf("Kleinere Menge angeben (größte Menge ist %d)", int64(unit.ConversionFromBase * float64(remainingQuanity)))
+				formErrors["amount"] = fmt.Sprintf("Kleinere Menge angeben (größte Menge ist %d)", int64(unit.ConversionFromBase*float64(remainingQuanity)))
 			}
 
 			if len(formErrors) == 0 {
@@ -695,7 +697,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 				defer tx.Rollback()
 
 				if itemId == 0 {
-					result, err := tx.Exec("INSERT INTO items (product_id, dimension_id, quantity, state) VALUES (?, ?, ?, 'added')", product.Id, dimension.Id, baseQuantity + startQuantiy)
+					result, err := tx.Exec("INSERT INTO items (product_id, dimension_id, quantity, state) VALUES (?, ?, ?, 'added')", product.Id, dimension.Id, baseQuantity+startQuantiy)
 					if err != nil {
 						log.Println(err.Error())
 						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -709,7 +711,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 						return
 					}
 				} else {
-					_, err := tx.Exec("UPDATE items SET quantity = ? WHERE id = ?", baseQuantity + startQuantiy, item.Id)
+					_, err := tx.Exec("UPDATE items SET quantity = ? WHERE id = ?", baseQuantity+startQuantiy, item.Id)
 					if err != nil {
 						log.Println(err.Error())
 						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -717,7 +719,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 
-				_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, quantity, state, recorded_at) VALUES (?, ?, ?, 'added', datetime('now'))", itemId, user.Id, baseQuantity + startQuantiy)
+				_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, quantity, state, recorded_at) VALUES (?, ?, ?, 'added', datetime('now'))", itemId, user.Id, baseQuantity+startQuantiy)
 				if err != nil {
 					log.Println(err.Error())
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -726,7 +728,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 
 				_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
 				if err != nil {
-					if (err.Error() == "UNIQUE constraint failed: idempotency_keys.key") {
+					if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
 						http.Redirect(w, r, "/plan", http.StatusSeeOther)
 						return
 					} else {
@@ -776,16 +778,16 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
-	data := struct{
-		CurrentUser types.User
-		Products []types.Product
-		AddedItems []types.AddedItem
-		GatheredItems []types.AddedItem
+	data := struct {
+		CurrentUser    types.User
+		Products       []types.Product
+		AddedItems     []types.AddedItem
+		GatheredItems  []types.AddedItem
 		IdempotencyKey string
-	} {
-		CurrentUser: user,
-		AddedItems: addedItems,
-		GatheredItems: gatheredItems,
+	}{
+		CurrentUser:    user,
+		AddedItems:     addedItems,
+		GatheredItems:  gatheredItems,
 		IdempotencyKey: IdempotencyKey(),
 	}
 
@@ -854,7 +856,7 @@ func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 
 		_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
 		if err != nil {
-			if (err.Error() == "UNIQUE constraint failed: idempotency_keys.key") {
+			if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
 				http.Redirect(w, r, "/shop", http.StatusSeeOther)
 				return
 			} else {
@@ -927,7 +929,7 @@ func (env *Environment) RemoveItemRoute(w http.ResponseWriter, r *http.Request) 
 
 		_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
 		if err != nil {
-			if (err.Error() == "UNIQUE constraint failed: idempotency_keys.key") {
+			if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
 				http.Redirect(w, r, "/plan", http.StatusSeeOther)
 				return
 			} else {

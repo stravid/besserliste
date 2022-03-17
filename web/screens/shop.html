@@ -13,6 +13,12 @@
   <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
 </form>
 
+<form id="undo-form" action="/undo" method="POST">
+  <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
+  <input type="hidden" name="new_state" value="added">
+  <input type="hidden" name="old_state" value="gathered">
+</form>
+
 <div class="l-stack-s3">
   {{if .AddedItems}}
   <ol>
@@ -38,6 +44,7 @@
     <li>
       <span class="name">{{.FormattedName}}</span>
       <span class="quantity">{{.FormattedQuantity}}</span>
+      <button class="action" form="undo-form" name="item_id" value="{{.Id}}" type="submit">Rückgangig machen</button>
     </li>
     {{end}}
   </ol>

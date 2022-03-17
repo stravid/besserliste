@@ -8,20 +8,20 @@ import (
 )
 
 type Queries struct {
-	getUsers sql.Stmt
-	getUserById sql.Stmt
-	getCategories sql.Stmt
-	getAddedProducts sql.Stmt
-	getProducts sql.Stmt
-	getDimensions sql.Stmt
-	getProduct sql.Stmt
+	getUsers                       sql.Stmt
+	getUserById                    sql.Stmt
+	getCategories                  sql.Stmt
+	getAddedProducts               sql.Stmt
+	getProducts                    sql.Stmt
+	getDimensions                  sql.Stmt
+	getProduct                     sql.Stmt
 	getAddedItemByProductDimension sql.Stmt
-	getAddedItems sql.Stmt
-	getRemainingItemsByAlphabet sql.Stmt
-	getItem sql.Stmt
-	getGatheredItems sql.Stmt
-	getRemovedItems sql.Stmt
-	getProductByName sql.Stmt
+	getAddedItems                  sql.Stmt
+	getRemainingItemsByAlphabet    sql.Stmt
+	getItem                        sql.Stmt
+	getGatheredItems               sql.Stmt
+	getRemovedItems                sql.Stmt
+	getProductByName               sql.Stmt
 }
 
 func Build(db *sql.DB) Queries {
@@ -324,6 +324,7 @@ func Build(db *sql.DB) Queries {
 			product_name_singular AS name_singular,
 			product_name_plural AS name_plural,
 			item_quantity AS quantity,
+			item_state AS state,
 			product_id,
 			json_object(
 				'id', dimension_id,
@@ -334,6 +335,7 @@ func Build(db *sql.DB) Queries {
 			SELECT
 				item_id,
 				item_quantity,
+				item_state,
 				product_id,
 				product_name_singular,
 				product_name_plural,
@@ -344,6 +346,7 @@ func Build(db *sql.DB) Queries {
 				SELECT
 					items.id AS item_id,
 					items.quantity AS item_quantity,
+					items.state AS item_state,
 					products.id AS product_id,
 					products.name_singular AS product_name_singular,
 					products.name_plural AS product_name_plural,
@@ -363,7 +366,7 @@ func Build(db *sql.DB) Queries {
 				WHERE items.id = ?
 				ORDER BY dimensions.ordering, units.ordering ASC
 			)
-			GROUP BY item_id, item_quantity, product_id, product_name_singular, product_name_plural, dimension_id, dimension_name
+			GROUP BY item_id, item_quantity, item_state, product_id, product_name_singular, product_name_plural, dimension_id, dimension_name
 		);
 	`)
 	if err != nil {
@@ -522,19 +525,19 @@ func Build(db *sql.DB) Queries {
 	}
 
 	return Queries{
-		getUsers: *getUsers,
-		getUserById: *getUserById,
-		getCategories: *getCategories,
-		getProducts: *getProducts,
-		getDimensions: *getDimensions,
-		getProduct: *getProduct,
+		getUsers:                       *getUsers,
+		getUserById:                    *getUserById,
+		getCategories:                  *getCategories,
+		getProducts:                    *getProducts,
+		getDimensions:                  *getDimensions,
+		getProduct:                     *getProduct,
 		getAddedItemByProductDimension: *getAddedItemByProductDimension,
-		getAddedItems: *getAddedItems,
-		getRemainingItemsByAlphabet: *getRemainingItemsByAlphabet,
-		getItem: *getItem,
-		getGatheredItems: *getGatheredItems,
-		getRemovedItems: *getRemovedItems,
-		getProductByName: *getProductByName,
+		getAddedItems:                  *getAddedItems,
+		getRemainingItemsByAlphabet:    *getRemainingItemsByAlphabet,
+		getItem:                        *getItem,
+		getGatheredItems:               *getGatheredItems,
+		getRemovedItems:                *getRemovedItems,
+		getProductByName:               *getProductByName,
 	}
 }
 
@@ -751,11 +754,11 @@ func (stmt *Queries) GetRemainingItemsByAlphabet() ([]types.AddedItem, error) {
 	return items, nil
 }
 
-func (stmt *Queries) GetItem(itemId int) (*types.AddedItem, error) {
+func (stmt *Queries) GetItem(itemId int) (*types.SelectedItem, error) {
 	row := stmt.getItem.QueryRow(itemId)
-	i := types.AddedItem{}
+	i := types.SelectedItem{}
 	var dimensionJson string
-	err := row.Scan(&i.Id, &i.NameSingular, &i.NamePlural, &i.Quantity, &i.ProductId, &dimensionJson)
+	err := row.Scan(&i.Id, &i.NameSingular, &i.NamePlural, &i.Quantity, &i.State, &i.ProductId, &dimensionJson)
 	if err != nil {
 		return nil, err
 	}

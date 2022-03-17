@@ -2,9 +2,9 @@ package migrations
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
 	"log"
-	"embed"
 )
 
 //go:embed *.sql
@@ -28,8 +28,8 @@ func Run(db *sql.DB) {
 			PRAGMA user_version = %v;
 			COMMIT;
 		`,
-		string(migration),
-		version)
+			string(migration),
+			version)
 
 		_, err = db.Exec(query)
 
