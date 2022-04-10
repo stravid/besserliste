@@ -146,6 +146,7 @@ func main() {
 	mux.Handle("/remove-item", internalHandler(env.RemoveItemRoute))
 	mux.Handle("/home", internalHandler(env.HomeRoute))
 	mux.Handle("/undo", internalHandler(env.UndoRoute))
+	mux.Handle("/set-quantity", internalHandler(env.SetQuantityRoute))
 
 	err = http.ListenAndServe(":4000", mux)
 	if err != nil {

@@ -1,0 +1,68 @@
+{{template "internal" .}}
+
+{{define "title"}}{{.Product.Name}} Menge verändern{{end}}
+
+{{define "navigation"}}
+<a href="/home">Home</a>
+<a href="/plan" class="active">Aufschreiben</a>
+<a href="/shop">Einkaufen</a>
+{{end}}
+
+{{define "main"}}
+<div class="l-stack-s3">
+  {{with .FormErrors}}
+  <div class="error-list">
+    <h2>Es gibt ein Problem</h2>
+    <ul>
+      {{range $id, $error := .}}
+      <li><a href="#{{$id}}">{{$error}}</a></li>
+      {{end}}
+    </ul>
+  </div>
+  {{end}}
+
+  <div class="l-stack-s0">
+    <a href="/plan">Zurück</a>
+    <h2>{{.Product.Name}}</h2>
+  </div>
+
+  <form method="POST" autocomplete="off">
+    <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
+
+    <div class="l-stack-s1">
+      <fieldset class="field">
+        <legend>
+          <span class="field-label">Maßeinheiten</span>
+          {{with .FormErrors.unit_id}}
+          <span class="field-error">{{.}}</span>
+          {{end}}
+        </legend>
+        <div class="field-options">
+          {{range .UnitOptions}}
+          <div class="field-radio">
+            <label for="unit-{{.Id}}">
+              <input type="radio" id="unit-{{.Id}}" name="unit_id" value="{{.Id}}" {{if eq $.UnitId .Id}}checked{{end}}>
+              {{.Name}}
+            </label>
+          </div>
+          {{end}}
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="quantity">
+          <span class="field-label">Menge</span>
+          {{with .FormErrors.quantity}}
+          <span class="field-error">{{.}}</span>
+          {{end}}
+        </label>
+        <input id="quantity" type="text" name="quantity" inputmode="decimal" value="{{.Quantity}}">
+      </div>
+
+      <div>
+        <button type="submit">Menge speichern</button>
+      </div>
+    </div>
+  </form>
+</div>
+{{end}}

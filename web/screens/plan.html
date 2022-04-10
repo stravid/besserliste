@@ -46,7 +46,7 @@
     {{range .AddedItems}}
     <li>
       <span class="name">{{.FormattedName}}</span>
-      <span class="quantity">{{.FormattedQuantity}}</span>
+      <span class="quantity"><a href="/set-quantity?item-id={{.Id}}">{{.FormattedQuantity}}</a></span>
       <button class="action" form="remove-form" name="item_id" value="{{.Id}}" type="submit">Entfernen</button>
     </li>
     {{end}}
