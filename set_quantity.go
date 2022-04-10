@@ -184,7 +184,7 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 						return
 					}
 
-					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, quantity, state, recorded_at) VALUES (?, ?, ?, 'removed', datetime('now'))", itemId, user.Id, item.Quantity)
+					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'removed', datetime('now'))", itemId, user.Id, item.Dimension.Id, item.Quantity)
 					if err != nil {
 						log.Println(err.Error())
 						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -199,7 +199,7 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 						return
 					}
 
-					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, quantity, state, recorded_at) VALUES (?, ?, ?, 'added', datetime('now'))", itemIdForSelectedDimension, user.Id, baseQuantity+startQuantiy)
+					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'added', datetime('now'))", itemIdForSelectedDimension, user.Id, itemForSelectedDimension.Dimension.Id, baseQuantity+startQuantiy)
 					if err != nil {
 						log.Println(err.Error())
 						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -214,7 +214,7 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 						return
 					}
 
-					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, quantity, state, recorded_at) VALUES (?, ?, ?, 'added', datetime('now'))", itemId, user.Id, baseQuantity)
+					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'added', datetime('now'))", itemId, user.Id, dimension.Id, baseQuantity)
 					if err != nil {
 						log.Println(err.Error())
 						http.Error(w, "Internal Server Error", http.StatusInternalServerError)

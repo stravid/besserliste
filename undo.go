@@ -58,7 +58,7 @@ func (env *Environment) UndoRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, datetime('now'))", item.Id, user.Id, item.Quantity, newState)
+		_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, ?, datetime('now'))", item.Id, user.Id, item.Dimension.Id, item.Quantity, newState)
 		if err != nil {
 			log.Println(err.Error())
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)

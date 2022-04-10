@@ -82,11 +82,13 @@ CREATE TABLE item_changes (
   id INTEGER PRIMARY KEY,
   item_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
+  dimension_id INTEGER NOT NULL,
   quantity INTEGER NOT NULL,
   state TEXT NOT NULL,
   recorded_at DATETIME NOT NULL,
   FOREIGN KEY(item_id) REFERENCES items(id),
-  FOREIGN KEY(user_id) REFERENCES users(id)
+  FOREIGN KEY(user_id) REFERENCES users(id),
+  FOREIGN KEY(dimension_id) REFERENCES dimensions(id)
 );
 
 CREATE TABLE dimensions_products (

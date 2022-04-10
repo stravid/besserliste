@@ -39,6 +39,7 @@ state
 id
 user_id
 item_id
+dimension_id
 quantity
 state
 recorded_at
@@ -65,6 +66,7 @@ items:product_id -- products:id
 items:dimension_id -- dimensions:id
 item_changes:user_id -- users:id
 item_changes:item_id -- items:id
+item_changes:dimension_id -- dimensions:id
 product_changes:user_id -- users:id
 product_changes:product-id -- products:id
 product_changes:category_id -- categories:id
