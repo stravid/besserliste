@@ -759,7 +759,57 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
-	addedItems, err := env.queries.GetRemainingItemsByAlphabet()
+	err := r.ParseForm()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	sortBy := r.Form.Get("sort-by")
+	sortSet := map[string]bool{
+		"": true,
+	}
+	sortOptions := []FormOption{
+		{Id: "", Name: "Alphabetisch"},
+	}
+
+	categories, err := env.queries.GetCategories()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	for _, category := range categories {
+		sortOptions = append(sortOptions, FormOption{
+			Id: strconv.Itoa(category.Id),
+			Name: category.Name,
+		})
+		sortSet[strconv.Itoa(category.Id)] = true
+	}
+
+	if !sortSet[sortBy] {
+		log.Println("Unknown sort option ", sortBy)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	var addedItems []types.AddedItem
+	if sortBy == "" {
+		addedItems, err = env.queries.GetRemainingItemsByAlphabet()
+	} else {
+		categoryId, err := strconv.Atoi(sortBy)
+
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		addedItems, err = env.queries.GetRemainingItemsByCategory(categoryId)
+	}
+
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -784,11 +834,15 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 		Products       []types.Product
 		AddedItems     []types.AddedItem
 		GatheredItems  []types.AddedItem
+		SortOptions    []FormOption
+		SortBy         string
 		IdempotencyKey string
 	}{
 		CurrentUser:    user,
 		AddedItems:     addedItems,
 		GatheredItems:  gatheredItems,
+		SortOptions:    sortOptions,
+		SortBy:         sortBy,
 		IdempotencyKey: IdempotencyKey(),
 	}
 

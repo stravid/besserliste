@@ -20,6 +20,21 @@
 </form>
 
 <div class="l-stack-s3">
+  <p>
+    Sortierung:
+    {{range .SortOptions}}
+      {{if eq .Id $.SortBy}}
+        <strong>{{.Name}}</strong>
+      {{else}}
+        {{if eq .Id ""}}
+          <a href="/shop">{{.Name}}</a>
+        {{else}}
+          <a href="/shop?sort-by={{.Id}}">{{.Name}}</a>
+        {{end}}
+      {{end}}
+    {{end}}
+  </p>
+
   {{if .AddedItems}}
   <ol>
     {{range .AddedItems}}
