@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,22 +17,19 @@ import (
 func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
 	}
 
 	itemId, err := strconv.Atoi(r.Form.Get("item-id"))
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
 	}
 
 	item, err := env.queries.GetItem(itemId)
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -84,15 +80,13 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 
 		ts, err := template.ParseFS(web.Templates, files...)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		err = ts.Execute(w, data)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 	}
@@ -139,8 +133,7 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 			itemForSelectedDimension, err := env.queries.GetAddedItemByProductDimension(product.Id, dimension.Id)
 			if err != nil {
 				if !errors.Is(err, sql.ErrNoRows) {
-					log.Println(err.Error())
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 			} else {
@@ -167,8 +160,7 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 			if len(formErrors) == 0 {
 				tx, err := env.db.Begin()
 				if err != nil {
-					log.Println(err.Error())
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 				defer tx.Rollback()
@@ -179,45 +171,39 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 					// Remove selected item
 					_, err := tx.Exec("UPDATE items SET state = 'removed' WHERE id = ?", item.Id)
 					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 
 					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'removed', datetime('now'))", itemId, user.Id, item.Dimension.Id, item.Quantity)
 					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 
 					// Update existing item
 					_, err = tx.Exec("UPDATE items SET quantity = ? WHERE id = ?", baseQuantity+startQuantiy, itemIdForSelectedDimension)
 					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 
 					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'added', datetime('now'))", itemIdForSelectedDimension, user.Id, itemForSelectedDimension.Dimension.Id, baseQuantity+startQuantiy)
 					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 				} else {
 					// Update existing item
 					_, err := tx.Exec("UPDATE items SET quantity = ?, dimension_id = ? WHERE id = ?", baseQuantity, dimension.Id, itemId)
 					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 
 					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'added', datetime('now'))", itemId, user.Id, dimension.Id, baseQuantity)
 					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 				}
@@ -228,16 +214,14 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 						http.Redirect(w, r, "/plan", http.StatusSeeOther)
 						return
 					} else {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 				}
 
 				err = tx.Commit()
 				if err != nil {
-					log.Println(err.Error())
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 

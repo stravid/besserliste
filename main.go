@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,35 @@ import (
 	"stravid.com/besserliste/types"
 	"stravid.com/besserliste/web"
 )
+
+func respondWithErrorPage(w http.ResponseWriter, statusCode int, err error) {
+	log.Println(fmt.Sprintf("%s\n%s", err.Error(), debug.Stack()))
+
+	data := struct {
+		Error   string
+		Message string
+	}{
+		Error:   http.StatusText(statusCode),
+		Message: err.Error(),
+	}
+
+	files := []string{
+		"layouts/error.html",
+	}
+
+	ts, err := template.ParseFS(web.Templates, files...)
+	if err != nil {
+		log.Println(err.Error())
+		panic("Error in error page logic.")
+	}
+
+	w.WriteHeader(statusCode)
+	err = ts.Execute(w, data)
+	if err != nil {
+		log.Println(err.Error())
+		panic("Error in error page logic.")
+	}
+}
 
 type FormOption struct {
 	Id   string
@@ -49,8 +79,7 @@ func (env *Environment) authenticate(next http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			} else {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				respondWithErrorPage(w, http.StatusInternalServerError, err)
 			}
 		}
 
@@ -167,25 +196,23 @@ func (env *Environment) LoginRoute(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		err := r.ParseForm()
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Bad Request", http.StatusBadRequest)
+			respondWithErrorPage(w, http.StatusBadRequest, err)
 			return
 		}
 
 		id, err := types.UserIdFromString(r.PostForm.Get("user_id"))
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Bad Request", http.StatusBadRequest)
+			respondWithErrorPage(w, http.StatusBadRequest, err)
 			return
 		}
 
 		user, err := env.queries.GetUserById(*id)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				http.Error(w, "User not found", http.StatusNotFound)
+				respondWithErrorPage(w, http.StatusNotFound, err)
 			} else {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				respondWithErrorPage(w, http.StatusInternalServerError, err)
+				return
 			}
 		}
 
@@ -195,8 +222,7 @@ func (env *Environment) LoginRoute(w http.ResponseWriter, r *http.Request) {
 	} else {
 		users, err := env.queries.GetUsers()
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -207,15 +233,13 @@ func (env *Environment) LoginRoute(w http.ResponseWriter, r *http.Request) {
 
 		ts, err := template.ParseFS(web.Templates, files...)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		err = ts.Execute(w, users)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 	}
@@ -236,15 +260,13 @@ func (env *Environment) HomeRoute(w http.ResponseWriter, r *http.Request) {
 
 	ts, err := template.ParseFS(web.Templates, files...)
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	err = ts.Execute(w, data)
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -254,7 +276,7 @@ func (env *Environment) LogoutRoute(w http.ResponseWriter, r *http.Request) {
 		env.session.Destroy(r)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 	} else {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		respondWithErrorPage(w, http.StatusBadRequest, errors.New("Logout muss per `POST` Methode passieren."))
 	}
 }
 
@@ -267,22 +289,19 @@ func IdempotencyKey() string {
 func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 	addedItems, err := env.queries.GetAddedItems()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	removedItems, err := env.queries.GetRemovedItems()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	products, err := env.queries.GetProducts()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -308,15 +327,13 @@ func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 
 	ts, err := template.ParseFS(web.Templates, files...)
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	err = ts.Execute(w, data)
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -324,22 +341,19 @@ func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
 	}
 
 	categories, err := env.queries.GetCategories()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	dimensions, err := env.queries.GetDimensions()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -400,15 +414,13 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 
 		ts, err := template.ParseFS(web.Templates, files...)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		err = ts.Execute(w, data)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 	}
@@ -455,8 +467,7 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 		if len(formErrors) == 0 {
 			tx, err := env.db.Begin()
 			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				respondWithErrorPage(w, http.StatusInternalServerError, err)
 				return
 			}
 
@@ -473,31 +484,27 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 					renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
 					return
 				} else {
-					log.Println(err.Error())
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 			}
 			productId, err := result.LastInsertId()
 			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				respondWithErrorPage(w, http.StatusInternalServerError, err)
 				return
 			}
 
 			for _, id := range dimensionIds {
 				result, err = tx.Exec("INSERT INTO dimensions_products (dimension_id, product_id) VALUES (?, ?)", id, productId)
 				if err != nil {
-					log.Println(err.Error())
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 			}
 
 			_, err = tx.Exec("INSERT INTO product_changes (product_id, user_id, category_id, name_singular, name_plural, recorded_at) VALUES (?, ?, ?, ?, ?, datetime('now'))", productId, user.Id, categoryId, nameSingular, namePlural)
 			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				respondWithErrorPage(w, http.StatusInternalServerError, err)
 				return
 			}
 
@@ -507,16 +514,14 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 					http.Redirect(w, r, "/plan", http.StatusSeeOther)
 					return
 				} else {
-					log.Println(err.Error())
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 			}
 
 			err = tx.Commit()
 			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				respondWithErrorPage(w, http.StatusInternalServerError, err)
 				return
 			}
 
@@ -531,8 +536,7 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 			if errors.Is(err, sql.ErrNoRows) {
 				renderForm(name, name, "", make(map[string]bool), IdempotencyKey(), make(map[string]string))
 			} else {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				respondWithErrorPage(w, http.StatusInternalServerError, err)
 				return
 			}
 		} else {
@@ -544,22 +548,19 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
 	}
 
 	productId, err := strconv.Atoi(r.Form.Get("product-id"))
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
 	}
 
 	product, err := env.queries.GetProduct(productId)
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -608,15 +609,13 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 
 		ts, err := template.ParseFS(web.Templates, files...)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		err = ts.Execute(w, data)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 	}
@@ -663,8 +662,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 			item, err := env.queries.GetAddedItemByProductDimension(product.Id, dimension.Id)
 			if err != nil {
 				if !errors.Is(err, sql.ErrNoRows) {
-					log.Println(err.Error())
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 			} else {
@@ -691,8 +689,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 			if len(formErrors) == 0 {
 				tx, err := env.db.Begin()
 				if err != nil {
-					log.Println(err.Error())
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 				defer tx.Rollback()
@@ -700,30 +697,26 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 				if itemId == 0 {
 					result, err := tx.Exec("INSERT INTO items (product_id, dimension_id, quantity, state) VALUES (?, ?, ?, 'added')", product.Id, dimension.Id, baseQuantity+startQuantiy)
 					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 
 					itemId, err = result.LastInsertId()
 					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 				} else {
 					_, err := tx.Exec("UPDATE items SET quantity = ? WHERE id = ?", baseQuantity+startQuantiy, item.Id)
 					if err != nil {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 				}
 
 				_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'added', datetime('now'))", itemId, user.Id, dimension.Id, baseQuantity+startQuantiy)
 				if err != nil {
-					log.Println(err.Error())
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 
@@ -733,16 +726,14 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 						http.Redirect(w, r, "/plan", http.StatusSeeOther)
 						return
 					} else {
-						log.Println(err.Error())
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 				}
 
 				err = tx.Commit()
 				if err != nil {
-					log.Println(err.Error())
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 
@@ -761,8 +752,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -776,22 +766,20 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 
 	categories, err := env.queries.GetCategories()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	for _, category := range categories {
 		sortOptions = append(sortOptions, FormOption{
-			Id: strconv.Itoa(category.Id),
+			Id:   strconv.Itoa(category.Id),
 			Name: category.Name,
 		})
 		sortSet[strconv.Itoa(category.Id)] = true
 	}
 
 	if !sortSet[sortBy] {
-		log.Println("Unknown sort option ", sortBy)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusBadRequest, errors.New(fmt.Sprintf("Unbekannter Wert `%s` für `sort-by`.", sortBy)))
 		return
 	}
 
@@ -802,8 +790,7 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 		categoryId, err := strconv.Atoi(sortBy)
 
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -811,15 +798,13 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	gatheredItems, err := env.queries.GetGatheredItems()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -848,15 +833,13 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 
 	ts, err := template.ParseFS(web.Templates, files...)
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	err = ts.Execute(w, data)
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -864,8 +847,7 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -875,37 +857,32 @@ func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 		idempotencyKey := r.PostForm.Get("_idempotency_key")
 		itemId, err := strconv.Atoi(r.PostForm.Get("item_id"))
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Bad Request", http.StatusBadRequest)
+			respondWithErrorPage(w, http.StatusBadRequest, err)
 			return
 		}
 
 		item, err := env.queries.GetItem(itemId)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		tx, err := env.db.Begin()
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 		defer tx.Rollback()
 
 		_, err = tx.Exec("UPDATE items SET state = 'gathered' WHERE id = ?", item.Id)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'gathered', datetime('now'))", item.Id, user.Id, item.Dimension.Id, item.Quantity)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -915,16 +892,14 @@ func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "/shop", http.StatusSeeOther)
 				return
 			} else {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				respondWithErrorPage(w, http.StatusInternalServerError, err)
 				return
 			}
 		}
 
 		err = tx.Commit()
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -937,8 +912,7 @@ func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 func (env *Environment) RemoveItemRoute(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -948,37 +922,32 @@ func (env *Environment) RemoveItemRoute(w http.ResponseWriter, r *http.Request) 
 		idempotencyKey := r.PostForm.Get("_idempotency_key")
 		itemId, err := strconv.Atoi(r.PostForm.Get("item_id"))
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Bad Request", http.StatusBadRequest)
+			respondWithErrorPage(w, http.StatusBadRequest, err)
 			return
 		}
 
 		item, err := env.queries.GetItem(itemId)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		tx, err := env.db.Begin()
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 		defer tx.Rollback()
 
 		_, err = tx.Exec("UPDATE items SET state = 'removed' WHERE id = ?", item.Id)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'removed', datetime('now'))", item.Id, user.Id, item.Dimension.Id, item.Quantity)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -988,16 +957,14 @@ func (env *Environment) RemoveItemRoute(w http.ResponseWriter, r *http.Request) 
 				http.Redirect(w, r, "/plan", http.StatusSeeOther)
 				return
 			} else {
-				log.Println(err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				respondWithErrorPage(w, http.StatusInternalServerError, err)
 				return
 			}
 		}
 
 		err = tx.Commit()
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
