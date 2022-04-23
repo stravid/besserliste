@@ -10,6 +10,7 @@ pkgs.mkShell {
     ruby
     graphviz
     icu
+    tokei
   ];
 
   shellHook = ''
