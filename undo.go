@@ -11,7 +11,14 @@ import (
 )
 
 func (env *Environment) UndoRoute(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+	tx, err := env.db.Begin()
+	if err != nil {
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer tx.Rollback()
+
+	err = r.ParseForm()
 	if err != nil {
 		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
@@ -29,7 +36,7 @@ func (env *Environment) UndoRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		item, err := env.queries.GetItem(itemId)
+		item, err := env.queries.GetItem(tx, itemId)
 		if err != nil {
 			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
@@ -40,26 +47,19 @@ func (env *Environment) UndoRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		tx, err := env.db.Begin()
-		if err != nil {
-			respondWithErrorPage(w, http.StatusInternalServerError, err)
-			return
-		}
-		defer tx.Rollback()
-
-		_, err = tx.Exec("UPDATE items SET state = ? WHERE id = ?", newState, item.Id)
+		err = env.queries.SetItemState(tx, item.Id, newState)
 		if err != nil {
 			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
-		_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, ?, datetime('now'))", item.Id, user.Id, item.Dimension.Id, item.Quantity, newState)
+		err = env.queries.InsertItemChange(tx, int64(item.Id), user.Id, item.Dimension.Id, int64(item.Quantity), newState)
 		if err != nil {
 			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
-		_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
+		err = env.queries.InsertIdempotencyKey(tx, idempotencyKey)
 		if err != nil {
 			if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
 				http.Redirect(w, r, "/plan", http.StatusSeeOther)
@@ -82,6 +82,12 @@ func (env *Environment) UndoRoute(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/shop", http.StatusSeeOther)
 		}
 	} else {
+		err = tx.Commit()
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+
 		if err != nil {
 			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return

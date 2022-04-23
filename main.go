@@ -72,7 +72,15 @@ func (env *Environment) authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		user, err := env.queries.GetUserById(env.session.GetInt(r, "user_id"))
+		tx, err := env.db.Begin()
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+		defer tx.Rollback()
+
+		user, err := env.queries.GetUserById(tx, env.session.GetInt(r, "user_id"))
+
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				env.session.Remove(r, "user_id")
@@ -81,6 +89,12 @@ func (env *Environment) authenticate(next http.Handler) http.Handler {
 			} else {
 				respondWithErrorPage(w, http.StatusInternalServerError, err)
 			}
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
 		}
 
 		ctx := context.WithValue(r.Context(), contextKeyCurrentUser, *user)
@@ -206,7 +220,14 @@ func (env *Environment) LoginRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, err := env.queries.GetUserById(*id)
+		tx, err := env.db.Begin()
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+		defer tx.Rollback()
+
+		user, err := env.queries.GetUserById(tx, *id)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				respondWithErrorPage(w, http.StatusNotFound, err)
@@ -216,11 +237,30 @@ func (env *Environment) LoginRoute(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		err = tx.Commit()
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+
 		env.session.Put(r, "user_id", user.Id)
 
 		http.Redirect(w, r, "/plan", http.StatusSeeOther)
 	} else {
-		users, err := env.queries.GetUsers()
+		tx, err := env.db.Begin()
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+		defer tx.Rollback()
+
+		users, err := env.queries.GetUsers(tx)
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		err = tx.Commit()
 		if err != nil {
 			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
@@ -287,19 +327,32 @@ func IdempotencyKey() string {
 }
 
 func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
-	addedItems, err := env.queries.GetAddedItems()
+	tx, err := env.db.Begin()
+	if err != nil {
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer tx.Rollback()
+
+	addedItems, err := env.queries.GetAddedItems(tx)
 	if err != nil {
 		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	removedItems, err := env.queries.GetRemovedItems()
+	removedItems, err := env.queries.GetRemovedItems(tx)
 	if err != nil {
 		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	products, err := env.queries.GetProducts()
+	products, err := env.queries.GetProducts(tx)
+	if err != nil {
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
@@ -339,19 +392,26 @@ func (env *Environment) PlanRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+	tx, err := env.db.Begin()
+	if err != nil {
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer tx.Rollback()
+
+	err = r.ParseForm()
 	if err != nil {
 		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
 	}
 
-	categories, err := env.queries.GetCategories()
+	categories, err := env.queries.GetCategories(tx)
 	if err != nil {
 		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	dimensions, err := env.queries.GetDimensions()
+	dimensions, err := env.queries.GetDimensions(tx)
 	if err != nil {
 		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
@@ -465,15 +525,7 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 		}
 
 		if len(formErrors) == 0 {
-			tx, err := env.db.Begin()
-			if err != nil {
-				respondWithErrorPage(w, http.StatusInternalServerError, err)
-				return
-			}
-
-			defer tx.Rollback()
-
-			result, err := tx.Exec("INSERT INTO products (category_id, name_singular, name_plural) VALUES (?, ?, ?)", categoryId, nameSingular, namePlural)
+			result, err := env.queries.InsertProduct(tx, categoryId, nameSingular, namePlural)
 			if err != nil {
 				if err.Error() == "UNIQUE constraint failed: index 'idx_products_name_singular'" {
 					formErrors["name_singular"] = "Anderen Namen angeben (ist bereits in Verwendung)"
@@ -495,20 +547,20 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 			}
 
 			for _, id := range dimensionIds {
-				result, err = tx.Exec("INSERT INTO dimensions_products (dimension_id, product_id) VALUES (?, ?)", id, productId)
+				result, err = env.queries.InsertProductDimension(tx, productId, id)
 				if err != nil {
 					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 			}
 
-			_, err = tx.Exec("INSERT INTO product_changes (product_id, user_id, category_id, name_singular, name_plural, recorded_at) VALUES (?, ?, ?, ?, ?, datetime('now'))", productId, user.Id, categoryId, nameSingular, namePlural)
+			_, err = env.queries.InsertProductChange(tx, productId, user.Id, categoryId, nameSingular, namePlural)
 			if err != nil {
 				respondWithErrorPage(w, http.StatusInternalServerError, err)
 				return
 			}
 
-			_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
+			err = env.queries.InsertIdempotencyKey(tx, idempotencyKey)
 			if err != nil {
 				if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
 					http.Redirect(w, r, "/plan", http.StatusSeeOther)
@@ -527,11 +579,24 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 
 			http.Redirect(w, r, fmt.Sprintf("/add-item?product-id=%d", productId), http.StatusSeeOther)
 		} else {
+			err = tx.Commit()
+			if err != nil {
+				respondWithErrorPage(w, http.StatusInternalServerError, err)
+				return
+			}
+
 			renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
 		}
 	} else {
 		name := r.Form.Get("name")
-		product, err := env.queries.GetProductByName(name)
+		product, err := env.queries.GetProductByName(tx, name)
+
+		err2 := tx.Commit()
+		if err2 != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err2)
+			return
+		}
+
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				renderForm(name, name, "", make(map[string]bool), IdempotencyKey(), make(map[string]string))
@@ -546,7 +611,14 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 }
 
 func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+	tx, err := env.db.Begin()
+	if err != nil {
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer tx.Rollback()
+
+	err = r.ParseForm()
 	if err != nil {
 		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
@@ -558,7 +630,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	product, err := env.queries.GetProduct(productId)
+	product, err := env.queries.GetProduct(tx, productId)
 	if err != nil {
 		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
@@ -659,7 +731,7 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 
 			startQuantiy := int64(0)
 			itemId := int64(0)
-			item, err := env.queries.GetAddedItemByProductDimension(product.Id, dimension.Id)
+			item, err := env.queries.GetAddedItemByProductDimension(tx, product.Id, dimension.Id)
 			if err != nil {
 				if !errors.Is(err, sql.ErrNoRows) {
 					respondWithErrorPage(w, http.StatusInternalServerError, err)
@@ -687,15 +759,8 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if len(formErrors) == 0 {
-				tx, err := env.db.Begin()
-				if err != nil {
-					respondWithErrorPage(w, http.StatusInternalServerError, err)
-					return
-				}
-				defer tx.Rollback()
-
 				if itemId == 0 {
-					result, err := tx.Exec("INSERT INTO items (product_id, dimension_id, quantity, state) VALUES (?, ?, ?, 'added')", product.Id, dimension.Id, baseQuantity+startQuantiy)
+					result, err := env.queries.InsertItem(tx, product.Id, dimension.Id, baseQuantity+startQuantiy)
 					if err != nil {
 						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
@@ -707,20 +772,20 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 						return
 					}
 				} else {
-					_, err := tx.Exec("UPDATE items SET quantity = ? WHERE id = ?", baseQuantity+startQuantiy, item.Id)
+					err = env.queries.SetItemQuantity(tx, int64(item.Id), baseQuantity+startQuantiy)
 					if err != nil {
 						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 				}
 
-				_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'added', datetime('now'))", itemId, user.Id, dimension.Id, baseQuantity+startQuantiy)
+				err = env.queries.InsertItemChange(tx, itemId, user.Id, dimension.Id, baseQuantity+startQuantiy, "added")
 				if err != nil {
 					respondWithErrorPage(w, http.StatusInternalServerError, err)
 					return
 				}
 
-				_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
+				err = env.queries.InsertIdempotencyKey(tx, idempotencyKey)
 				if err != nil {
 					if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
 						http.Redirect(w, r, "/plan", http.StatusSeeOther)
@@ -745,12 +810,25 @@ func (env *Environment) AddItemRoute(w http.ResponseWriter, r *http.Request) {
 			renderForm(amount, unitId, idempotencyKey, formErrors)
 		}
 	} else {
+		err = tx.Commit()
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+
 		renderForm("", "", IdempotencyKey(), make(map[string]string))
 	}
 }
 
 func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+	tx, err := env.db.Begin()
+	if err != nil {
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer tx.Rollback()
+
+	err = r.ParseForm()
 	if err != nil {
 		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
@@ -764,7 +842,7 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 		{Id: "", Name: "Alphabetisch"},
 	}
 
-	categories, err := env.queries.GetCategories()
+	categories, err := env.queries.GetCategories(tx)
 	if err != nil {
 		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
@@ -785,7 +863,7 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 
 	var addedItems []types.AddedItem
 	if sortBy == "" {
-		addedItems, err = env.queries.GetRemainingItemsByAlphabet()
+		addedItems, err = env.queries.GetRemainingItemsByAlphabet(tx)
 	} else {
 		categoryId, err := strconv.Atoi(sortBy)
 
@@ -794,7 +872,7 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		addedItems, err = env.queries.GetRemainingItemsByCategory(categoryId)
+		addedItems, err = env.queries.GetRemainingItemsByCategory(tx, categoryId)
 	}
 
 	if err != nil {
@@ -802,7 +880,13 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gatheredItems, err := env.queries.GetGatheredItems()
+	gatheredItems, err := env.queries.GetGatheredItems(tx)
+	if err != nil {
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
@@ -845,7 +929,14 @@ func (env *Environment) ShopRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+	tx, err := env.db.Begin()
+	if err != nil {
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer tx.Rollback()
+
+	err = r.ParseForm()
 	if err != nil {
 		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
@@ -861,32 +952,30 @@ func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		item, err := env.queries.GetItem(itemId)
+		item, err := env.queries.GetItem(tx, itemId)
 		if err != nil {
 			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
-		tx, err := env.db.Begin()
-		if err != nil {
-			respondWithErrorPage(w, http.StatusInternalServerError, err)
-			return
-		}
-		defer tx.Rollback()
-
-		_, err = tx.Exec("UPDATE items SET state = 'gathered' WHERE id = ?", item.Id)
-		if err != nil {
-			respondWithErrorPage(w, http.StatusInternalServerError, err)
+		if item.State != "added" {
+			respondWithErrorPage(w, http.StatusBadRequest, errors.New("Eintrag befindet sich im falschen Zustand."))
 			return
 		}
 
-		_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'gathered', datetime('now'))", item.Id, user.Id, item.Dimension.Id, item.Quantity)
+		err = env.queries.SetItemState(tx, item.Id, "gathered")
 		if err != nil {
 			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
-		_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
+		err = env.queries.InsertItemChange(tx, int64(item.Id), user.Id, item.Dimension.Id, int64(item.Quantity), "gathered")
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		err = env.queries.InsertIdempotencyKey(tx, idempotencyKey)
 		if err != nil {
 			if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
 				http.Redirect(w, r, "/shop", http.StatusSeeOther)
@@ -905,12 +994,25 @@ func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 
 		http.Redirect(w, r, "/shop", http.StatusSeeOther)
 	} else {
+		err = tx.Commit()
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+
 		http.Redirect(w, r, "/shop", http.StatusSeeOther)
 	}
 }
 
 func (env *Environment) RemoveItemRoute(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+	tx, err := env.db.Begin()
+	if err != nil {
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer tx.Rollback()
+
+	err = r.ParseForm()
 	if err != nil {
 		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
@@ -926,32 +1028,30 @@ func (env *Environment) RemoveItemRoute(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		item, err := env.queries.GetItem(itemId)
+		item, err := env.queries.GetItem(tx, itemId)
 		if err != nil {
 			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
-		tx, err := env.db.Begin()
-		if err != nil {
-			respondWithErrorPage(w, http.StatusInternalServerError, err)
-			return
-		}
-		defer tx.Rollback()
-
-		_, err = tx.Exec("UPDATE items SET state = 'removed' WHERE id = ?", item.Id)
-		if err != nil {
-			respondWithErrorPage(w, http.StatusInternalServerError, err)
+		if item.State != "added" {
+			respondWithErrorPage(w, http.StatusBadRequest, errors.New("Eintrag befindet sich im falschen Zustand."))
 			return
 		}
 
-		_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'removed', datetime('now'))", item.Id, user.Id, item.Dimension.Id, item.Quantity)
+		err = env.queries.SetItemState(tx, item.Id, "removed")
 		if err != nil {
 			respondWithErrorPage(w, http.StatusInternalServerError, err)
 			return
 		}
 
-		_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
+		err = env.queries.InsertItemChange(tx, int64(item.Id), user.Id, item.Dimension.Id, int64(item.Quantity), "removed")
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		err = env.queries.InsertIdempotencyKey(tx, idempotencyKey)
 		if err != nil {
 			if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
 				http.Redirect(w, r, "/plan", http.StatusSeeOther)
@@ -970,6 +1070,12 @@ func (env *Environment) RemoveItemRoute(w http.ResponseWriter, r *http.Request) 
 
 		http.Redirect(w, r, "/plan", http.StatusSeeOther)
 	} else {
+		err = tx.Commit()
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
+
 		http.Redirect(w, r, "/plan", http.StatusSeeOther)
 	}
 }

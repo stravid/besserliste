@@ -15,7 +15,14 @@ import (
 )
 
 func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+	tx, err := env.db.Begin()
+	if err != nil {
+		respondWithErrorPage(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer tx.Rollback()
+
+	err = r.ParseForm()
 	if err != nil {
 		respondWithErrorPage(w, http.StatusBadRequest, err)
 		return
@@ -27,13 +34,18 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	item, err := env.queries.GetItem(itemId)
+	item, err := env.queries.GetItem(tx, itemId)
 	if err != nil {
 		respondWithErrorPage(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	product, err := env.queries.GetProduct(item.ProductId)
+	if item.State != "added" {
+		respondWithErrorPage(w, http.StatusBadRequest, errors.New("Eintrag befindet sich im falschen Zustand."))
+		return
+	}
+
+	product, err := env.queries.GetProduct(tx, item.ProductId)
 
 	units := []types.Unit{}
 	for _, dimension := range product.Dimensions {
@@ -130,7 +142,7 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 
 			startQuantiy := int64(0)
 			itemIdForSelectedDimension := int64(0)
-			itemForSelectedDimension, err := env.queries.GetAddedItemByProductDimension(product.Id, dimension.Id)
+			itemForSelectedDimension, err := env.queries.GetAddedItemByProductDimension(tx, product.Id, dimension.Id)
 			if err != nil {
 				if !errors.Is(err, sql.ErrNoRows) {
 					respondWithErrorPage(w, http.StatusInternalServerError, err)
@@ -158,57 +170,50 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 			}
 
 			if len(formErrors) == 0 {
-				tx, err := env.db.Begin()
-				if err != nil {
-					respondWithErrorPage(w, http.StatusInternalServerError, err)
-					return
-				}
-				defer tx.Rollback()
-
 				initialItemNeedsToBeRemoved := item.Dimension.Id != dimension.Id && itemIdForSelectedDimension != 0
 
 				if initialItemNeedsToBeRemoved {
 					// Remove selected item
-					_, err := tx.Exec("UPDATE items SET state = 'removed' WHERE id = ?", item.Id)
+					err = env.queries.SetItemState(tx, item.Id, "removed")
 					if err != nil {
 						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 
-					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'removed', datetime('now'))", itemId, user.Id, item.Dimension.Id, item.Quantity)
+					err = env.queries.InsertItemChange(tx, int64(itemId), user.Id, item.Dimension.Id, int64(item.Quantity), "removed")
 					if err != nil {
 						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 
 					// Update existing item
-					_, err = tx.Exec("UPDATE items SET quantity = ? WHERE id = ?", baseQuantity+startQuantiy, itemIdForSelectedDimension)
+					err = env.queries.SetItemQuantity(tx, itemIdForSelectedDimension, baseQuantity+startQuantiy)
 					if err != nil {
 						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 
-					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'added', datetime('now'))", itemIdForSelectedDimension, user.Id, itemForSelectedDimension.Dimension.Id, baseQuantity+startQuantiy)
+					err = env.queries.InsertItemChange(tx, itemIdForSelectedDimension, user.Id, itemForSelectedDimension.Dimension.Id, baseQuantity+startQuantiy, "added")
 					if err != nil {
 						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 				} else {
 					// Update existing item
-					_, err := tx.Exec("UPDATE items SET quantity = ?, dimension_id = ? WHERE id = ?", baseQuantity, dimension.Id, itemId)
+					err = env.queries.SetItemQuantityForDifferentDimension(tx, itemId, baseQuantity, dimension.Id)
 					if err != nil {
 						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 
-					_, err = tx.Exec("INSERT INTO item_changes (item_id, user_id, dimension_id, quantity, state, recorded_at) VALUES (?, ?, ?, ?, 'added', datetime('now'))", itemId, user.Id, dimension.Id, baseQuantity)
+					err = env.queries.InsertItemChange(tx, int64(itemId), user.Id, dimension.Id, baseQuantity, "added")
 					if err != nil {
 						respondWithErrorPage(w, http.StatusInternalServerError, err)
 						return
 					}
 				}
 
-				_, err = tx.Exec("INSERT INTO idempotency_keys (key, processed_at) VALUES (?, datetime('now'))", idempotencyKey)
+				err = env.queries.InsertIdempotencyKey(tx, idempotencyKey)
 				if err != nil {
 					if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
 						http.Redirect(w, r, "/plan", http.StatusSeeOther)
@@ -249,6 +254,12 @@ func (env *Environment) SetQuantityRoute(w http.ResponseWriter, r *http.Request)
 		}
 
 		formattedQuantity := strings.Replace(strconv.FormatFloat(preselectedUnit.ConversionFromBase*floatQuantity, 'f', -1, 32), ".", ",", -1)
+
+		err = tx.Commit()
+		if err != nil {
+			respondWithErrorPage(w, http.StatusInternalServerError, err)
+			return
+		}
 
 		renderForm(formattedQuantity, strconv.Itoa(preselectedUnit.Id), IdempotencyKey(), make(map[string]string))
 	}
