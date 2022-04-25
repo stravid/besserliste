@@ -29,7 +29,8 @@ INSERT INTO dimensions (
   (2, 'Gewicht', 2),
   (3, 'Volumen', 3),
   (4, 'Dosen', 4),
-  (5, 'Flaschen', 5)
+  (5, 'Flaschen', 5),
+  (6, 'Packung', 6)
 ;
 
 INSERT INTO units (
@@ -47,5 +48,6 @@ INSERT INTO units (
   (3, 'ml', 'ml', 1.0, 1.0, 1),
   (3, 'l', 'l', 1000.0, 0.001, 2),
   (4, 'Dose', 'Dosen', 1.0, 1.0, 1),
-  (5, 'Flasche', 'Flaschen', 1.0, 1.0, 1)
+  (5, 'Flasche', 'Flaschen', 1.0, 1.0, 1),
+  (6, 'Packung', 'Packungen', 1.0, 1.0, 1)
 ;
