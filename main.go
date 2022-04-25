@@ -64,6 +64,29 @@ type contextKey string
 
 const contextKeyCurrentUser = contextKey("currentUser")
 
+func (env *Environment) idempotencyKeysCleaner() {
+	for {
+		tx, err := env.db.Begin()
+		if err != nil {
+			panic(fmt.Sprintf("idempotencyKeysCleaner: %v", err))
+		}
+
+		_, err = env.queries.RemovePreviousIdempotencyKeys(tx)
+
+		if err != nil {
+			tx.Rollback()
+			panic(fmt.Sprintf("idempotencyKeysCleaner: %v", err))
+		} else {
+			err = tx.Commit()
+			if err != nil {
+				panic(fmt.Sprintf("idempotencyKeysCleaner: %v", err))
+			}
+		}
+
+		time.Sleep(60 * 60 * time.Second)
+	}
+}
+
 func (env *Environment) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		exists := env.session.Exists(r, "user_id")
@@ -175,6 +198,8 @@ func main() {
 	internalHandler := func(handler func(http.ResponseWriter, *http.Request)) http.Handler {
 		return env.session.Enable(env.authenticate(env.requireAuthentication(http.HandlerFunc(handler))))
 	}
+
+	go env.idempotencyKeysCleaner()
 
 	mux := http.NewServeMux()
 	mux.Handle("/static/", fileServer)

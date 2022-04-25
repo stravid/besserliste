@@ -510,3 +510,10 @@ func (stmt *Queries) InsertItem(tx *sql.Tx, productId int, dimensionId int, quan
 
 	return tx.Stmt(stmt.statements["InsertItem"]).Exec(productId, dimensionId, quantity)
 }
+func (stmt *Queries) RemovePreviousIdempotencyKeys(tx *sql.Tx) (sql.Result, error) {
+	if _, ok := stmt.statements["RemovePreviousIdempotencyKeys"]; !ok {
+		return nil, errors.New("Unknown query `RemovePreviousIdempotencyKeys`")
+	}
+
+	return tx.Stmt(stmt.statements["RemovePreviousIdempotencyKeys"]).Exec()
+}
