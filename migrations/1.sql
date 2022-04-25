@@ -72,11 +72,13 @@ CREATE TABLE items (
   dimension_id INTEGER NOT NULL,
   quantity INTEGER NOT NULL CHECK(quantity > 0 AND quantity <= 10000),
   state TEXT NOT NULL CHECK(state IN ('added', 'gathered', 'removed')),
+  changed_at DATETIME NOT NULL,
   FOREIGN KEY(product_id) REFERENCES products(id),
   FOREIGN KEY(dimension_id) REFERENCES dimensions(id)
 );
 
 CREATE UNIQUE INDEX idx_items_added ON items(state, product_id, dimension_id) WHERE state = 'added';
+CREATE INDEX idx_items_changed_at ON items(changed_at);
 
 CREATE TABLE item_changes (
   id INTEGER PRIMARY KEY,

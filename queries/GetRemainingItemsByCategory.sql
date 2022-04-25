@@ -13,7 +13,6 @@ SELECT
         product_category_id AS category_id,
         item_quantity AS quantity,
         product_id,
-        last_change_at,
         json_object(
           'id', dimension_id,
           'name', dimension_name,
@@ -29,7 +28,6 @@ SELECT
           product_category_id,
           dimension_id,
           dimension_name,
-          MAX(last_change_at) AS last_change_at,
           json_group_array(json(unit)) AS units
         FROM (
           SELECT
@@ -41,7 +39,6 @@ SELECT
             products.category_id AS product_category_id,
             dimensions.id AS dimension_id,
             dimensions.name AS dimension_name,
-            item_changes.recorded_at AS last_change_at,
             json_object(
               'id', units.id,
               'name_singular', units.name_singular,
@@ -53,7 +50,6 @@ SELECT
           INNER JOIN products ON items.product_id = products.id
           INNER JOIN dimensions ON items.dimension_id = dimensions.id
           INNER JOIN units ON dimensions.id = units.dimension_id
-          INNER JOIN item_changes ON items.id = item_changes.item_id
           WHERE items.state = 'added'
           ORDER BY dimensions.ordering, units.ordering ASC
         )

@@ -34,6 +34,7 @@ product_id
 dimension_id
 quantity
 state
+changed_at
 
 [item_changes]
 id
