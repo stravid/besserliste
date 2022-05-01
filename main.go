@@ -971,10 +971,16 @@ func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodPost {
 		idempotencyKey := r.PostForm.Get("_idempotency_key")
+		sortBy := r.PostForm.Get("sort_by")
 		itemId, err := strconv.Atoi(r.PostForm.Get("item_id"))
 		if err != nil {
 			respondWithErrorPage(w, http.StatusBadRequest, err)
 			return
+		}
+
+		successPath := fmt.Sprintf("/shop?sort-by=%s", sortBy)
+		if sortBy == "" {
+			successPath = "/shop"
 		}
 
 		item, err := env.queries.GetItem(tx, itemId)
@@ -1003,7 +1009,7 @@ func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 		err = env.queries.InsertIdempotencyKey(tx, idempotencyKey)
 		if err != nil {
 			if err.Error() == "UNIQUE constraint failed: idempotency_keys.key" {
-				http.Redirect(w, r, "/shop", http.StatusSeeOther)
+				http.Redirect(w, r, successPath, http.StatusSeeOther)
 				return
 			} else {
 				respondWithErrorPage(w, http.StatusInternalServerError, err)
@@ -1017,7 +1023,7 @@ func (env *Environment) CheckItemRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.Redirect(w, r, "/shop", http.StatusSeeOther)
+		http.Redirect(w, r, successPath, http.StatusSeeOther)
 	} else {
 		err = tx.Commit()
 		if err != nil {

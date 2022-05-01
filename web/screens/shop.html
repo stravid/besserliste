@@ -11,10 +11,12 @@
 {{define "main"}}
 <form id="check-form" action="/check-item" method="POST">
   <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
+  <input type="hidden" name="sort_by" value="{{.SortBy}}">
 </form>
 
 <form id="undo-form" action="/undo" method="POST">
   <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
+  <input type="hidden" name="sort_by" value="{{.SortBy}}">
   <input type="hidden" name="new_state" value="added">
   <input type="hidden" name="old_state" value="gathered">
 </form>

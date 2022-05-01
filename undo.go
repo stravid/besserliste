@@ -28,6 +28,7 @@ func (env *Environment) UndoRoute(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodPost {
 		idempotencyKey := r.PostForm.Get("_idempotency_key")
+		sortBy := r.PostForm.Get("sort_by")
 		oldState := r.PostForm.Get("old_state")
 		newState := r.PostForm.Get("new_state")
 		itemId, err := strconv.Atoi(r.PostForm.Get("item_id"))
@@ -79,7 +80,11 @@ func (env *Environment) UndoRoute(w http.ResponseWriter, r *http.Request) {
 		if oldState == "removed" {
 			http.Redirect(w, r, "/plan", http.StatusSeeOther)
 		} else {
-			http.Redirect(w, r, "/shop", http.StatusSeeOther)
+			successPath := fmt.Sprintf("/shop?sort-by=%s", sortBy)
+			if sortBy == "" {
+				successPath = "/shop"
+			}
+			http.Redirect(w, r, successPath, http.StatusSeeOther)
 		}
 	} else {
 		err = tx.Commit()
