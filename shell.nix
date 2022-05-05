@@ -1,11 +1,11 @@
 { pkgs ? import (fetchGit {
   url = https://github.com/NixOS/nixpkgs;
-  ref = "9675a865c9c3eeec36c06361f7215e109925654c";
+  ref = "d5d94127fd6468febe4f5e8eba8cb231bbd56103";
 }) {} }:
 
 pkgs.mkShell {
   buildInputs = with pkgs; [
-    go_1_17
+    go_1_18
     watchexec
     ruby
     graphviz
