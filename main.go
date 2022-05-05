@@ -155,6 +155,7 @@ type Environment struct {
 type Configuration struct {
 	Database string
 	Secret   string
+	Listen   string
 }
 
 func main() {
@@ -216,7 +217,7 @@ func main() {
 	mux.Handle("/undo", internalHandler(env.UndoRoute))
 	mux.Handle("/set-quantity", internalHandler(env.SetQuantityRoute))
 
-	err = http.ListenAndServe(":4000", mux)
+	err = http.ListenAndServe(configuration.Listen, mux)
 	if err != nil {
 		log.Fatalln("Error starting Besserliste web application: ", err.Error())
 	}
