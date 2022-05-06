@@ -1,12 +1,13 @@
-#! /usr/bin/env nix-shell
-#! nix-shell ../build.nix -i bash
+#!/bin/bash
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-go build -a -ldflags="-v -extldflags '-static'" -tags "netgo sqlite_omit_load_extension sqlite_json1 sqlite_icu"
-
-# ssh -t deployer@pandora.stravid.com -p 5020 "sudo systemctl stop besserliste"
-# scp -P 5020 besserliste deployer@pandora.stravid.com:~/apps/besserliste/
-# ssh -t deployer@pandora.stravid.com -p 5020 "sudo systemctl restart besserliste"
+ssh -t deployer@pandora.stravid.com -p 5020 << EOF
+  cd ~/code/besserliste
+  export PATH=$PATH:/usr/local/go/bin
+  go build -a -ldflags="-v -extldflags ''" -tags "netgo sqlite_omit_load_extension sqlite_json1 sqlite_icu"
+  cp besserliste ~/apps/besserliste/
+  sudo systemctl restart besserliste
+EOF
