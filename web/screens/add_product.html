@@ -52,16 +52,16 @@
 
       <fieldset class="field">
         <legend>
-          <span class="field-label">Kategorie</span>
-          {{with .FormErrors.category_id}}
+          <span class="field-label">Kategorien</span>
+          {{with .FormErrors.category_ids}}
           <span class="field-error">{{.}}</span>
           {{end}}
         </legend>
         <div class="field-options">
           {{range .Categories}}
-          <div class="field-radio">
+          <div class="field-checkbox">
             <label for="category_id-{{.Id}}">
-              <input type="radio" id="category_id-{{.Id}}" name="category_id" value="{{.Id}}" {{if eq $.CategoryId .Id}}checked{{end}}>
+              <input type="checkbox" id="category_id-{{.Id}}" name="category_ids" value="{{.Id}}" {{if (index $.CategoryIds .Id) }}checked{{end}}>
               {{.Name}}
             </label>
           </div>
@@ -80,7 +80,7 @@
           {{range .DimensionOptions}}
           <div class="field-checkbox">
             <label for="dimension-{{.Id}}">
-              <input type="checkbox" id="dimension-{{.Id}}" name="dimension_ids" value="{{.Id}}"{{if (index $.DimensionIds .Id) }}checked{{end}}>
+              <input type="checkbox" id="dimension-{{.Id}}" name="dimension_ids" value="{{.Id}}" {{if (index $.DimensionIds .Id) }}checked{{end}}>
               {{.Name}}
             </label>
           </div>

@@ -470,14 +470,14 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 
 	user, _ := r.Context().Value(contextKeyCurrentUser).(types.User)
 
-	renderForm := func(nameSingular string, namePlural string, categoryId string, dimensionIds map[string]bool, idempotencyKey string, formErrors map[string]string) {
+	renderForm := func(nameSingular string, namePlural string, categoryIds map[string]bool, dimensionIds map[string]bool, idempotencyKey string, formErrors map[string]string) {
 		data := struct {
 			CurrentUser      types.User
 			Categories       []CategoryOption
 			DimensionOptions []FormOption
 			NameSingular     string
 			NamePlural       string
-			CategoryId       string
+			CategoryIds       map[string]bool
 			DimensionIds     map[string]bool
 			IdempotencyKey   string
 			FormErrors       map[string]string
@@ -486,7 +486,7 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 			Categories:       categoryOptions,
 			NameSingular:     nameSingular,
 			NamePlural:       namePlural,
-			CategoryId:       categoryId,
+			CategoryIds:      categoryIds,
 			IdempotencyKey:   idempotencyKey,
 			FormErrors:       formErrors,
 			DimensionOptions: dimensionOptions,
@@ -516,12 +516,17 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 		idempotencyKey := r.PostForm.Get("_idempotency_key")
 		nameSingular := strings.TrimSpace(r.PostForm.Get("name_singular"))
 		namePlural := strings.TrimSpace(r.PostForm.Get("name_plural"))
-		categoryId := r.PostForm.Get("category_id")
+		categoryIds := r.PostForm["category_ids"]
 		dimensionIds := r.PostForm["dimension_ids"]
 
 		selectedDimensions := map[string]bool{}
 		for _, id := range dimensionIds {
 			selectedDimensions[id] = true
+		}
+
+		selectedCategories := map[string]bool{}
+		for _, id := range categoryIds {
+			selectedCategories[id] = true
 		}
 
 		if nameSingular == "" {
@@ -536,8 +541,14 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 			formErrors["name_plural"] = "Kürzeren Namen angeben (maximal 40 Zeichen)"
 		}
 
-		if !categorySet[categoryId] {
-			formErrors["category_id"] = "Kategorie wählen"
+		if len(categoryIds) == 0 {
+			formErrors["category_ids"] = "Kategorie wählen"
+		}
+
+		for _, categoryId := range categoryIds {
+			if !categorySet[categoryId] {
+				formErrors["category_ids"] = "Kategorie wählen"
+			}
 		}
 
 		if len(dimensionIds) == 0 {
@@ -551,15 +562,15 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 		}
 
 		if len(formErrors) == 0 {
-			result, err := env.queries.InsertProduct(tx, categoryId, nameSingular, namePlural)
+			result, err := env.queries.InsertProduct(tx, nameSingular, namePlural)
 			if err != nil {
 				if err.Error() == "UNIQUE constraint failed: index 'idx_products_name_singular'" {
 					formErrors["name_singular"] = "Anderen Namen angeben (ist bereits in Verwendung)"
-					renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
+					renderForm(nameSingular, namePlural, selectedCategories, selectedDimensions, idempotencyKey, formErrors)
 					return
 				} else if err.Error() == "UNIQUE constraint failed: index 'idx_products_name_plural'" {
 					formErrors["name_plural"] = "Anderen Namen angeben (ist bereits in Verwendung)"
-					renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
+					renderForm(nameSingular, namePlural, selectedCategories, selectedDimensions, idempotencyKey, formErrors)
 					return
 				} else {
 					respondWithErrorPage(w, http.StatusInternalServerError, err)
@@ -580,7 +591,15 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 				}
 			}
 
-			_, err = env.queries.InsertProductChange(tx, productId, user.Id, categoryId, nameSingular, namePlural)
+			for _, id := range categoryIds {
+				result, err = env.queries.InsertProductCategory(tx, productId, id)
+				if err != nil {
+					respondWithErrorPage(w, http.StatusInternalServerError, err)
+					return
+				}
+			}
+
+			_, err = env.queries.InsertProductChange(tx, productId, user.Id, nameSingular, namePlural)
 			if err != nil {
 				respondWithErrorPage(w, http.StatusInternalServerError, err)
 				return
@@ -611,7 +630,7 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 
-			renderForm(nameSingular, namePlural, categoryId, selectedDimensions, idempotencyKey, formErrors)
+			renderForm(nameSingular, namePlural, selectedCategories, selectedDimensions, idempotencyKey, formErrors)
 		}
 	} else {
 		name := r.Form.Get("name")
@@ -625,7 +644,7 @@ func (env *Environment) AddProductRoute(w http.ResponseWriter, r *http.Request) 
 
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				renderForm(name, name, "", make(map[string]bool), IdempotencyKey(), make(map[string]string))
+				renderForm(name, name, make(map[string]bool), make(map[string]bool), IdempotencyKey(), make(map[string]string))
 			} else {
 				respondWithErrorPage(w, http.StatusInternalServerError, err)
 				return

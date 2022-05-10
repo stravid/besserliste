@@ -479,12 +479,12 @@ func (stmt *Queries) SetItemQuantityForDifferentDimension(tx *sql.Tx, itemId int
 	return err
 }
 
-func (stmt *Queries) InsertProduct(tx *sql.Tx, categoryId string, nameSingular string, namePlural string) (sql.Result, error) {
+func (stmt *Queries) InsertProduct(tx *sql.Tx, nameSingular string, namePlural string) (sql.Result, error) {
 	if _, ok := stmt.statements["InsertProduct"]; !ok {
 		return nil, errors.New("Unknown query `InsertProduct`")
 	}
 
-	return tx.Stmt(stmt.statements["InsertProduct"]).Exec(categoryId, nameSingular, namePlural)
+	return tx.Stmt(stmt.statements["InsertProduct"]).Exec(nameSingular, namePlural)
 }
 
 func (stmt *Queries) InsertProductDimension(tx *sql.Tx, productId int64, dimensionId string) (sql.Result, error) {
@@ -495,12 +495,20 @@ func (stmt *Queries) InsertProductDimension(tx *sql.Tx, productId int64, dimensi
 	return tx.Stmt(stmt.statements["InsertProductDimension"]).Exec(dimensionId, productId)
 }
 
-func (stmt *Queries) InsertProductChange(tx *sql.Tx, productId int64, userId int, categoryId string, nameSingular string, namePlural string) (sql.Result, error) {
+func (stmt *Queries) InsertProductCategory(tx *sql.Tx, productId int64, categoryId string) (sql.Result, error) {
+	if _, ok := stmt.statements["InsertProductCategory"]; !ok {
+		return nil, errors.New("Unknown query `InsertProductCategory`")
+	}
+
+	return tx.Stmt(stmt.statements["InsertProductCategory"]).Exec(categoryId, productId)
+}
+
+func (stmt *Queries) InsertProductChange(tx *sql.Tx, productId int64, userId int, nameSingular string, namePlural string) (sql.Result, error) {
 	if _, ok := stmt.statements["InsertProductChange"]; !ok {
 		return nil, errors.New("Unknown query `InsertProductChange`")
 	}
 
-	return tx.Stmt(stmt.statements["InsertProductChange"]).Exec(productId, userId, categoryId, nameSingular, namePlural)
+	return tx.Stmt(stmt.statements["InsertProductChange"]).Exec(productId, userId, nameSingular, namePlural)
 }
 
 func (stmt *Queries) InsertItem(tx *sql.Tx, productId int, dimensionId int, quantity int64) (sql.Result, error) {

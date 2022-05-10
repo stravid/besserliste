@@ -1,16 +1,15 @@
 SELECT
-      id,
+      DISTINCT id,
       name_singular,
       name_plural,
       quantity,
-      product_id,
+      complete_items.product_id AS product_id,
       dimension
     FROM (
       SELECT
         item_id AS id,
         product_name_singular AS name_singular,
         product_name_plural AS name_plural,
-        product_category_id AS category_id,
         item_quantity AS quantity,
         product_id,
         json_object(
@@ -25,7 +24,6 @@ SELECT
           product_id,
           product_name_singular,
           product_name_plural,
-          product_category_id,
           dimension_id,
           dimension_name,
           json_group_array(json(unit)) AS units
@@ -36,7 +34,6 @@ SELECT
             products.id AS product_id,
             products.name_singular AS product_name_singular,
             products.name_plural AS product_name_plural,
-            products.category_id AS product_category_id,
             dimensions.id AS dimension_id,
             dimensions.name AS dimension_name,
             json_object(
@@ -53,9 +50,10 @@ SELECT
           WHERE items.state = 'added'
           ORDER BY dimensions.ordering, units.ordering ASC
         )
-        GROUP BY item_id, item_quantity, product_id, product_name_singular, product_name_plural, product_category_id, dimension_id, dimension_name
+        GROUP BY item_id, item_quantity, product_id, product_name_singular, product_name_plural, dimension_id, dimension_name
       )
-    )
-    ORDER BY category_id <> ?, name_plural ASC
+    ) complete_items
+    INNER JOIN categories_products ON complete_items.product_id = categories_products.product_id
+    ORDER BY categories_products.category_id <> ?, name_plural ASC
     LIMIT 100
     ;
