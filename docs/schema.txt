@@ -70,7 +70,7 @@ item_changes:user_id -- users:id
 item_changes:item_id -- items:id
 item_changes:dimension_id -- dimensions:id
 product_changes:user_id -- users:id
-product_changes:product-id -- products:id
+product_changes:product_id -- products:id
 units:dimension_id -- dimensions:id
 dimensions_products:dimension_id -- dimensions:id
 dimensions_products:product_id -- products:id
