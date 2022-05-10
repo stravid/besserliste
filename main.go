@@ -182,7 +182,7 @@ func main() {
 	migrations.Run(db)
 
 	session := sessions.New([]byte(configuration.Secret))
-	session.Lifetime = 48 * time.Hour
+	session.Lifetime = 30 * 24 * time.Hour
 
 	env := &Environment{
 		queries: queries.Build(db),
