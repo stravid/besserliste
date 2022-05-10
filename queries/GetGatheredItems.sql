@@ -1,6 +1,7 @@
 WITH gathered_items AS (
   SELECT
-    id
+    id,
+    changed_at
   FROM items
   WHERE state = 'gathered' AND changed_at >= datetime('now', '-6 hours')
   ORDER BY changed_at DESC
@@ -40,6 +41,7 @@ FROM (
       SELECT
         items.id AS item_id,
         items.quantity AS item_quantity,
+        gathered_items.changed_at AS item_changed_at,
         products.id AS product_id,
         products.name_singular AS product_name_singular,
         products.name_plural AS product_name_plural,
@@ -59,7 +61,8 @@ FROM (
       INNER JOIN gathered_items ON items.id = gathered_items.id
       ORDER BY dimensions.ordering, units.ordering ASC
     )
-    GROUP BY item_id, item_quantity, product_id, product_name_singular, product_name_plural, dimension_id, dimension_name
+    GROUP BY item_id, item_quantity, item_changed_at, product_id, product_name_singular, product_name_plural, dimension_id, dimension_name
+    ORDER BY item_changed_at DESC
   )
 )
 ;
