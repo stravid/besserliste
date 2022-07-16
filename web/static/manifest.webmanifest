@@ -1,0 +1,15 @@
+{
+  "background_color": "white",
+  "description": "Ein digitaler Einkaufszettel der nichts vergisst.",
+  "display": "fullscreen",
+  "icons": [
+    {
+      "src": "icon-homescreen.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "name": "Besserliste",
+  "short_name": "Besserliste",
+  "start_url": "/"
+}
