@@ -17,7 +17,6 @@ id
 dimension_id
 name_singular
 name_plural
-is_base_unit
 conversion_to_base
 conversion_from_base
 ordering
