@@ -4,13 +4,14 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+
+export CGO_LDFLAGS="$(pkg-config --libs --static icu-i18n) -lstdc++"
+CGO_ENABLED=1 go build -tags "icu" -ldflags '-extldflags "-static"'
+scp -P 5020 ./besserliste deployer@pandora.stravid.com:~/apps/besserliste/besserliste.tmp
+
 ssh -t deployer@pandora.stravid.com -p 5020 << EOF
-  cd ~/code/besserliste
-  git checkout master
-  git pull
-  export PATH=$PATH:/usr/local/go/bin
-  go build -a -ldflags="-v -extldflags ''" -tags "netgo sqlite_omit_load_extension sqlite_json1 sqlite_icu"
   sudo systemctl stop besserliste
-  cp besserliste ~/apps/besserliste/
+  rm ~/apps/besserliste/besserliste
+  mv ~/apps/besserliste/besserliste.tmp ~/apps/besserliste/besserliste
   sudo systemctl restart besserliste
 EOF
