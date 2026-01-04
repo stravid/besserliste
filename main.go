@@ -49,9 +49,10 @@ func main() {
 	session.Lifetime = 30 * 24 * time.Hour
 
 	env := &Environment{
-		queries: queries.Build(db),
-		session: session,
-		db:      db,
+		queries:  queries.Build(db),
+		session:  session,
+		db:       db,
+		password: configuration.Password,
 	}
 
 	fileServer := http.FileServer(http.FS(web.Static))
@@ -188,13 +189,15 @@ func (env *Environment) isAuthenticated(r *http.Request) bool {
 }
 
 type Environment struct {
-	queries queries.Queries
-	session *sessions.Session
-	db      *sql.DB
+	queries  queries.Queries
+	session  *sessions.Session
+	db       *sql.DB
+	password string
 }
 
 type Configuration struct {
 	Database string
 	Secret   string
 	Listen   string
+	Password string
 }

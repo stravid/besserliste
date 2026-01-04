@@ -6,20 +6,54 @@
 <div class="l-stack-s3">
   <h1>Anmeldung</h1>
 
-  <p>
-    Zum fortfahren Benutzer*in auswählen.
-  </p>
+  {{with .FormErrors}}
+  <div class="error-list">
+    <h2>Es gibt ein Problem</h2>
+    <ul>
+      {{range $id, $error := .}}
+      <li><a href="#{{$id}}">{{$error}}</a></li>
+      {{end}}
+    </ul>
+  </div>
+  {{end}}
 
-  <ol>
-    {{range .}}
-    <li>
-      <span class="name">{{.Name}}</span>
-      <form class="action" method="POST">
-        <input type="hidden" name="user_id" value="{{.Id}}" >
+  <form method="POST">
+    <input type="hidden" name="_idempotency_key" value="{{.IdempotencyKey}}">
+
+    <div class="l-stack-s1">
+      <fieldset class="field">
+        <legend>
+          <span class="field-label">Benutzer</span>
+          {{with .FormErrors.user_id}}
+          <span class="field-error">{{.}}</span>
+          {{end}}
+        </legend>
+        <div class="field-options">
+          {{range .UserOptions}}
+          <div class="field-radio">
+            <label for="user-{{.Id}}">
+              <input type="radio" id="user-{{.Id}}" name="user_id" value="{{.Id}}" {{if eq $.UserId .Id}}checked{{end}}>
+              {{.Name}}
+            </label>
+          </div>
+          {{end}}
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="password">
+          <span class="field-label">Passwort</span>
+          {{with .FormErrors.password}}
+          <span class="field-error">{{.}}</span>
+          {{end}}
+        </label>
+        <input id="password" type="password" name="password">
+      </div>
+
+      <div>
         <button type="submit">Anmelden</button>
-      </form>
-    </li>
-    {{end}}
-  </ol>
+      </div>
+    </div>
+  </form>
 </div>
 {{end}}

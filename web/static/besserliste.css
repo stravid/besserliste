@@ -78,7 +78,8 @@ main {
   margin-bottom: var(--s-5);
 }
 
-[type=text] {
+[type=text],
+[type=password] {
   width: 100%;
   padding: var(--s-3);
   font-size: 1em;

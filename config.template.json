@@ -1,5 +1,6 @@
 {
   "Database": "development.db",
   "Secret": "64 character hex string",
-  "Listen": ":5000"
+  "Listen": ":5000",
+  "Password": "test"
 }
