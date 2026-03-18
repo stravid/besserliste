@@ -4,14 +4,14 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+rm ./besserliste
+go build -tags "icu"
 
-export CGO_LDFLAGS="$(pkg-config --libs --static icu-i18n) -lstdc++"
-CGO_ENABLED=1 go build -tags "icu" -ldflags '-extldflags "-static"'
-scp -P 5020 ./besserliste deployer@pandora.stravid.com:~/apps/besserliste/besserliste.tmp
+scp ./besserliste deployer@app001.stravid.com:/srv/besserliste/besserliste.tmp
 
 ssh -t deployer@pandora.stravid.com -p 5020 << EOF
-  sudo systemctl stop besserliste
-  rm ~/apps/besserliste/besserliste
-  mv ~/apps/besserliste/besserliste.tmp ~/apps/besserliste/besserliste
-  sudo systemctl restart besserliste
+  systemctl stop besserliste
+  rm /srv/besserliste/besserliste
+  mv /srv/besserliste/besserliste.tmp /srv/besserliste/besserliste
+  systemctl start besserliste
 EOF
