@@ -6,19 +6,33 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golangcollege/sessions"
-	_ "github.com/mattn/go-sqlite3"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"runtime/debug"
+	"time"
+
+	"github.com/golangcollege/sessions"
+	"github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 	"stravid.com/besserliste/migrations"
 	"stravid.com/besserliste/queries"
 	"stravid.com/besserliste/types"
 	"stravid.com/besserliste/web"
-	"time"
 )
+
+func init() {
+	sql.Register("sqlite3_with_collation", &sqlite3.SQLiteDriver{
+		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+			_, err := conn.Exec(
+				"SELECT icu_load_collation('de_AT', 'de_AT');",
+				nil,
+			)
+			return err
+		},
+	})
+}
 
 func main() {
 	configurationFile, _ := os.Open("config.json")
@@ -30,17 +44,11 @@ func main() {
 		log.Fatalln("Error opening config.json: ", err.Error())
 	}
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("%s?_foreign_keys=on", configuration.Database))
+	db, err := sql.Open("sqlite3_with_collation", fmt.Sprintf("%s?_foreign_keys=on", configuration.Database))
 	if err != nil {
 		log.Fatalln("Error opening database: ", err.Error())
 	}
 	defer db.Close()
-
-	// Load correct collation so our sorting works as expected.
-	_, err = db.Exec("SELECT icu_load_collation('de_AT', 'de_AT');")
-	if err != nil {
-		log.Fatalln("Error loading collation: ", err.Error())
-	}
 
 	// Run migrations at boot to get current database schema.
 	migrations.Run(db)
